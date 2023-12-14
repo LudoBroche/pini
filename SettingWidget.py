@@ -62,7 +62,8 @@ class SettingWidget(qt.QMainWindow):
 
     def _buildTable(self):
         self.tableLibrary.setColumnCount(2)
-        self.tableLibrary.setRowCount(4)
+        self.tableLibrary.verticalHeader().setVisible(False)
+        self.tableLibrary.horizontalHeader().setVisible(False)
 
         list_library = self.parameter['pini_parameters']['library']['names']
         res = list(map(str, list_library[1:-1].split(',')))
@@ -72,6 +73,7 @@ class SettingWidget(qt.QMainWindow):
         res = list(map(int, list_Install[1:-1].split(',')))
         list_Install = res
 
+        self.tableLibrary.setRowCount(len(list_library))
         for i, lib in enumerate(list_library):
             self.tableLibrary.setItem(i, 0, qt.QTableWidgetItem(lib))
             test_lib = importlib.util.find_spec(lib)
