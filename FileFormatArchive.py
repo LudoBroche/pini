@@ -6,6 +6,13 @@ import xmltodict
 from datetime import datetime
 import glob
 import importQt as qt
+import getpass
+
+
+class AlignDelegate(qt.QStyledItemDelegate):
+    def initStyleOption(self, option, index):
+        super(AlignDelegate, self).initStyleOption(option, index)
+        option.displayAlignment = qt.Qt.AlignCenter
 
 class StartUpArchive(qt.QMainWindow):
 
@@ -26,42 +33,92 @@ class StartUpArchive(qt.QMainWindow):
         self.mainWidget = qt.QWidget()
         self.layoutArchiveW = qt.QGridLayout()
 
+        self.buttonLayout = qt.QHBoxLayout()
+        self.importButton = qt.QPushButton('Import Archive')
+        self.deleteButton = qt.QPushButton('Delete')
+        self.buttonLayout.addWidget(self.importButton)
+        self.buttonLayout.addWidget(self.deleteButton)
+
+
 
         self.tableArchive = qt.QTableWidget()
-        self.tableArchive.setColumnCount(5)
+        delegate = AlignDelegate(self.tableArchive)
+        self.tableArchive.setItemDelegate(delegate)
+        self.tableArchive.setColumnCount(6)
         self.tableArchive.setRowCount(len(self.list_h5_archive)+1)
         self.tableArchive.verticalHeader().setVisible(False)
         self.tableArchive.horizontalHeader().setVisible(False)
 
+        self.tableArchive.setItem(0, 0, qt.QTableWidgetItem("User"))
+        self.tableArchive.setItem(0,1,qt.QTableWidgetItem("Creation Date"))
+        self.tableArchive.setItem(0,2,qt.QTableWidgetItem("Modification Date"))
+        self.tableArchive.setItem(0,3,qt.QTableWidgetItem("Dataset"))
+        self.tableArchive.setItem(0, 4, qt.QTableWidgetItem("Import"))
+        self.tableArchive.setItem(0, 5, qt.QTableWidgetItem("Delete"))
 
-        self.tableArchive.setItem(0,0,qt.QTableWidgetItem("Creation Date"))
-        self.tableArchive.setItem(0,1,qt.QTableWidgetItem("Modification Date"))
-        self.tableArchive.setItem(0,2,qt.QTableWidgetItem("DataSets"))
-        self.tableArchive.setItem(0, 3, qt.QTableWidgetItem("Import"))
-        self.tableArchive.setItem(0, 4, qt.QTableWidgetItem("Delete"))
+
+
+
+        header = self.tableArchive.horizontalHeader()
+        header.setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(3, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(4, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(5, qt.QHeaderView.ResizeToContents)
+
+        self.list_item_delete = []
+        self.list_item_load = []
 
         for i, arch in enumerate(self.list_h5_archive):
             h5 = h5py.File(arch,'r')
-            self.tableArchive.setItem(i + 1, 0, qt.QTableWidgetItem(h5.attrs['creation_date']))
-            self.tableArchive.setItem(i + 1, 1, qt.QTableWidgetItem(h5.attrs['modification_date']))
-            print(h5.attrs.keys())
+            self.tableArchive.setItem(i + 1, 0, qt.QTableWidgetItem(h5.attrs['name']))
+            self.tableArchive.setItem(i + 1, 1, qt.QTableWidgetItem(h5.attrs['creation_date'].split('.')[0]))
+            self.tableArchive.setItem(i + 1, 2, qt.QTableWidgetItem(h5.attrs['modification_date'].split('.')[0]))
+            self.tableArchive.setItem(i + 1, 3, qt.QTableWidgetItem(str(len(list(h5.keys())))))
 
-            """
-            self.tableLibrary.setItem(i, 0, qt.QTableWidgetItem(lib))
-            test_lib = importlib.util.find_spec(lib)
-            if test_lib == None:
-                self.tableLibrary.setItem(i, 1, qt.QTableWidgetItem("Not Installed"))
-                list_Install[i] = 0
-            else:
-                self.tableLibrary.setItem(i, 1, qt.QTableWidgetItem("Installed"))
-                list_Install[i] = 1
-            """
+
+            cBImp = qt.QCheckBox()
+            cBImp.setStyleSheet("margin-left:20%; margin-right:20%;")
+            cBDelete = qt.QCheckBox()
+            cBDelete.setStyleSheet("margin-left:20%; margin-right:20%;")
+            self.list_item_load.append(cBImp)
+            self.list_item_delete.append(cBDelete)
+
+            self.tableArchive.setCellWidget(i + 1, 4, cBImp)
+            self.tableArchive.setCellWidget(i + 1, 5, cBDelete)
+
+            cBImp.setObjectName(str(i))
+            cBImp.stateChanged.connect(self._selectImportChange)
+            cBDelete.setObjectName(str(i))
+            cBDelete.stateChanged.connect(self._selectDeleteChange)
+
+
 
         self.layoutArchiveW.addWidget(self.tableArchive)
+        self.layoutArchiveW.addLayout(self.buttonLayout,1,0)
         self.mainWidget.setLayout(self.layoutArchiveW)
         self.setCentralWidget(self.mainWidget)
+        self.resize(800, 400)
         self.show()
 
+
+    def _selectDeleteChange(self):
+        if self.sender().isChecked():
+            idImport = self.sender().objectName()
+            boxImport = self.list_item_load[int(idImport)]
+            if boxImport.isChecked():
+                boxImport.setChecked(False)
+
+    def _selectImportChange(self):
+        if self.sender().isChecked():
+            idImport = self.sender().objectName()
+            boxDelete = self.list_item_delete[int(idImport)]
+            if boxDelete.isChecked():
+                boxDelete.setChecked(False)
+            for box in self.list_item_load:
+                if box.objectName() != idImport:
+                    box.setChecked(False)
 
     def _check4Archive(self):
         self.list_h5_archive = glob.glob(str(self.pathFolderArchive) + '/*.h5')
@@ -99,6 +156,7 @@ class ArchiveHdf5:
         self.archH5 = h5py.File(self.pathArchive,'a')
 
         dt = h5py.special_dtype(vlen=str)
+        self.archH5.attrs["name"] = getpass.getuser()
         self.archH5.attrs["creation_date"] = str(dateTime)
         self.archH5.attrs["modification_date"] = str(dateTime)
 
@@ -149,9 +207,9 @@ class ArchiveHdf5:
 if __name__ == "__main__":
 
     archive = ArchiveHdf5()
-    archive.createNewArchive()
-    #archive.openArchive("./pini_2023-12-14_172301.h5")
-    #archive.createEmptyImage()
+    #archive.createNewArchive()
+    archive.openArchive("./pini_2023-12-15_105149.h5")
+    archive.createEmptyImage()
 
 
 
