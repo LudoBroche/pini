@@ -7,6 +7,7 @@ from datetime import datetime
 import glob
 import importQt as qt
 import getpass
+import uuid
 from lib import h5pyImport
 
 class AlignDelegate(qt.QStyledItemDelegate):
@@ -19,19 +20,17 @@ class StartUpArchive(qt.QMainWindow):
     def __init__(self, parent=None ):
         qt.QMainWindow.__init__(self, parent)
         self.parent = parent
-        self.setWindowTitle('Archive')
+        self.arch = None
+        self.setWindowTitle('Projects Library')
         self.setWindowIcon(qt.QIcon('./Icones/transp.png'))
         self.path_xml = Path('./config.xml')
         self._testFolderWriteable()
         self._startUpMessageBox()
 
-
     def _testFolderWriteable(self):
         self._loadConfigFile()
         self.pathFolderArchive = Path(self.parameter['pini_parameters']['home_collection']['path'])
         self._check4Archive()
-
-        print("Folder Archive",self.pathFolderArchive)
         # Testing if Archive Folder is writable.  It's easier to ask for forgiveness than for permission
         self.flag_writeable = False
         try:
@@ -41,6 +40,7 @@ class StartUpArchive(qt.QMainWindow):
             self.flag_writeable = True
         except:
             self.flag_writeable = False
+
 
     def _startUpMessageBox(self):
         if self.flag_writeable :
@@ -76,32 +76,37 @@ class StartUpArchive(qt.QMainWindow):
         self.parameter = doc
 
     def _buildArchiveWidget(self):
+
         self.mainWidget = qt.QWidget()
         self.layoutArchiveW = qt.QGridLayout()
 
         self.buttonLayout = qt.QHBoxLayout()
-        self.importButton = qt.QPushButton('Import Archive')
+        self.importButton = qt.QPushButton('Import')
+        self.newArchive = qt.QPushButton('New')
         self.deleteButton = qt.QPushButton('Delete')
         self.buttonLayout.addWidget(self.importButton)
+        self.buttonLayout.addWidget(self.newArchive)
         self.buttonLayout.addWidget(self.deleteButton)
 
         self.importButton.clicked.connect(self._importArchive)
+        self.newArchive.clicked.connect(self._newArchive)
         self.deleteButton.clicked.connect(self._deleteArchive)
 
         self.tableArchive = qt.QTableWidget()
         delegate = AlignDelegate(self.tableArchive)
         self.tableArchive.setItemDelegate(delegate)
-        self.tableArchive.setColumnCount(6)
+        self.tableArchive.setColumnCount(7)
         self.tableArchive.setRowCount(len(self.list_h5_archive)+1)
         self.tableArchive.verticalHeader().setVisible(False)
         self.tableArchive.horizontalHeader().setVisible(False)
 
-        self.tableArchive.setItem(0, 0, qt.QTableWidgetItem("User"))
-        self.tableArchive.setItem(0,1,qt.QTableWidgetItem("Creation Date"))
-        self.tableArchive.setItem(0,2,qt.QTableWidgetItem("Modification Date"))
-        self.tableArchive.setItem(0,3,qt.QTableWidgetItem("Dataset"))
-        self.tableArchive.setItem(0, 4, qt.QTableWidgetItem("Import"))
-        self.tableArchive.setItem(0, 5, qt.QTableWidgetItem("Delete"))
+        self.tableArchive.setItem(0, 0, qt.QTableWidgetItem("Project"))
+        self.tableArchive.setItem(0, 1, qt.QTableWidgetItem("User"))
+        self.tableArchive.setItem(0,2,qt.QTableWidgetItem("Creation Date"))
+        self.tableArchive.setItem(0,3,qt.QTableWidgetItem("Modification Date"))
+        self.tableArchive.setItem(0,4,qt.QTableWidgetItem("Dataset"))
+        self.tableArchive.setItem(0, 5, qt.QTableWidgetItem("Import"))
+        self.tableArchive.setItem(0, 6, qt.QTableWidgetItem("Delete"))
 
         header = self.tableArchive.horizontalHeader()
         header.setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
@@ -110,16 +115,29 @@ class StartUpArchive(qt.QMainWindow):
         header.setSectionResizeMode(3, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(4, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(5, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(6, qt.QHeaderView.ResizeToContents)
 
         self.list_item_delete = []
         self.list_item_load = []
 
+
+        flag_current_archive = False
+
+
+
         for i, arch in enumerate(self.list_h5_archive):
             h5 = h5py.File(arch,'r')
-            self.tableArchive.setItem(i + 1, 0, qt.QTableWidgetItem(h5.attrs['name']))
-            self.tableArchive.setItem(i + 1, 1, qt.QTableWidgetItem(h5.attrs['creation_date'].split('.')[0]))
-            self.tableArchive.setItem(i + 1, 2, qt.QTableWidgetItem(h5.attrs['modification_date'].split('.')[0]))
-            self.tableArchive.setItem(i + 1, 3, qt.QTableWidgetItem(str(len(list(h5.keys())))))
+            if self.arch != None:
+                if str(self.arch.pathArchive)==str(arch):
+                    flag_current_archive = True
+                else:
+                    flag_current_archive = False
+
+            self.tableArchive.setItem(i + 1, 0, qt.QTableWidgetItem(h5.attrs['project_name']))
+            self.tableArchive.setItem(i + 1, 1, qt.QTableWidgetItem(h5.attrs['user']))
+            self.tableArchive.setItem(i + 1, 2, qt.QTableWidgetItem(h5.attrs['creation_date'].split('.')[0]))
+            self.tableArchive.setItem(i + 1, 3, qt.QTableWidgetItem(h5.attrs['modification_date'].split('.')[0]))
+            self.tableArchive.setItem(i + 1, 4, qt.QTableWidgetItem(str(len(list(h5.keys())))))
 
             cBImp = qt.QCheckBox()
             cBImp.setStyleSheet("margin-left:20%; margin-right:20%;")
@@ -128,27 +146,59 @@ class StartUpArchive(qt.QMainWindow):
             self.list_item_load.append(cBImp)
             self.list_item_delete.append(cBDelete)
 
-            self.tableArchive.setCellWidget(i + 1, 4, cBImp)
-            self.tableArchive.setCellWidget(i + 1, 5, cBDelete)
+            self.tableArchive.setCellWidget(i + 1, 5, cBImp)
+            self.tableArchive.setCellWidget(i + 1, 6, cBDelete)
+
+
+            if flag_current_archive:
+                color = qt.QColor(200, 200, 200)
+                for j in range(0,7):
+                    if j < 5 :
+                        self.tableArchive.item(i + 1, j).setBackground(color)
+                    else:
+                        w = self.tableArchive.cellWidget(i + 1, j)
+                        w.setAutoFillBackground(True)
+                        p = w.palette()
+                        p.setColor(w.backgroundRole(), color)
+                        w.setPalette(p)
 
             cBImp.setObjectName(str(i))
             cBImp.stateChanged.connect(self._selectImportChange)
             cBDelete.setObjectName(str(i))
             cBDelete.stateChanged.connect(self._selectDeleteChange)
-        h5.close()
+            h5.close()
+
+
+        if len(self.list_h5_archive) == 1:
+            self.list_item_delete[0].setEnabled(False)
+
         self.layoutArchiveW.addWidget(self.tableArchive)
         self.layoutArchiveW.addLayout(self.buttonLayout,1,0)
         self.mainWidget.setLayout(self.layoutArchiveW)
         self.setCentralWidget(self.mainWidget)
-        self.resize(459, 400)
+        self.resize(504, 400)
         self.show()
 
     def _selectDeleteChange(self):
+
         if self.sender().isChecked():
             idImport = self.sender().objectName()
             boxImport = self.list_item_load[int(idImport)]
             if boxImport.isChecked():
                 boxImport.setChecked(False)
+
+        Total_archive = len(self.list_item_delete)
+        total_archive_delete = 0
+        for arch in self.list_item_delete:
+            if arch.isChecked():
+                total_archive_delete +=1
+
+        for arch in self.list_item_delete:
+            if ((Total_archive - total_archive_delete) == 1):
+                if not arch.isChecked():
+                    arch.setEnabled(False)
+            else:
+                arch.setEnabled(True)
 
     def _selectImportChange(self):
         if self.sender().isChecked():
@@ -162,6 +212,13 @@ class StartUpArchive(qt.QMainWindow):
 
     def _check4Archive(self):
         self.list_h5_archive = glob.glob(str(self.pathFolderArchive) + '/*.h5')
+        self.list_h5_archive = self.list_h5_archive[::-1]
+
+    def _newArchive(self):
+        self.arch = ArchiveHdf5()
+        self.arch.createNewArchive()
+        self._check4Archive()
+        self._buildArchiveWidget()
 
     def _importArchive(self):
         for i, box in enumerate(self.list_item_load):
@@ -173,14 +230,12 @@ class StartUpArchive(qt.QMainWindow):
         self.parent.h5Import.open_file(path_to_open)
 
     def _deleteArchive(self):
+
         for i, box in enumerate(self.list_item_delete):
             if box.isChecked():
                 os.remove(self.list_h5_archive[i])
-
         self._check4Archive()
         self._buildArchiveWidget()
-
-
 
 
 class ArchiveHdf5:
@@ -207,12 +262,13 @@ class ArchiveHdf5:
         self.archH5 = h5py.File(self.pathArchive,'a')
 
         dt = h5py.special_dtype(vlen=str)
-        self.archH5.attrs["name"] = getpass.getuser()
+        self.archH5.attrs["project_name"] = ''
+        self.archH5.attrs["user"] = getpass.getuser()
         self.archH5.attrs["creation_date"] = str(dateTime)
         self.archH5.attrs["modification_date"] = str(dateTime)
-
-
+        self.archH5.attrs["code"] = str(uuid.uuid4())
         self.archH5.close()
+
 
     def openArchive(self,archivePath):
         self.pathArchive = Path(archivePath)

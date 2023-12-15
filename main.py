@@ -30,6 +30,11 @@ class MainWindow(qt.QMainWindow) :
         menu_bar = self.menuBar()
 
         file_menu = menu_bar.addMenu('&File')
+        project_menu = qt.QAction('&Open Project',self)
+        project_menu.triggered.connect(self._launchProjectWin)
+        file_menu.addAction(project_menu)
+
+
         import_menu = file_menu.addMenu('&Import Data')
         export_menu = file_menu.addMenu('&Export Data')
         #parameter_menu = file_menu.addMenu('&Settings')
@@ -55,6 +60,9 @@ class MainWindow(qt.QMainWindow) :
         parameters = qt.QAction('Settings',self)
         parameters.triggered.connect(self._parametersGUI)
         file_menu.addAction(parameters)
+
+    def _launchProjectWin(self):
+        self.startUpArchive._buildArchiveWidget()
 
     def _importHDF5(self):
         self.h5Import.show()
