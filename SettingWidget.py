@@ -14,6 +14,7 @@ class SettingWidget(qt.QMainWindow):
 
     def __init__(self, parent=None,):
         super(SettingWidget, self).__init__(parent)
+        self.parent = parent
         self.setWindowTitle('Settings')
         """Attributs"""
         self.path_xml = Path('./config.xml')
@@ -56,6 +57,9 @@ class SettingWidget(qt.QMainWindow):
 
         "Init Methods"
         self._loadConfigFile()
+
+        self.pathArchiveInit = str(Path(self.parameter['pini_parameters']['home_collection']['path']))
+
         self._updateWidget()
         self._checkFolder()
         self._buildTable()
@@ -85,7 +89,7 @@ class SettingWidget(qt.QMainWindow):
                 list_Install[i] = 1
 
         self.parameter['pini_parameters']['library']['install'] = str(list_Install)
-        self._saveParameters()
+
 
     def _checkFolder(self):
         path = Path(self.PathTmpFilesSave.valueLineEdit())
@@ -107,12 +111,12 @@ class SettingWidget(qt.QMainWindow):
             list_h5 = glob.glob(path_file)
 
             if len(list_h5) == 0:
-                self.labelInfo.setText('No Data Archived {} | '.format(string_space))
+                self.labelInfo.setText('No Data Archived {}'.format(string_space))
             else:
                 if len(list_h5) == 1:
-                    string = 'Found 1 data File {} | '.format(string_space)
+                    string = 'Found 1 data File {}'.format(string_space)
                 else:
-                    string = 'Found {} data file {} | '.format(len(list_h5),string_space)
+                    string = 'Found {} data file {}'.format(len(list_h5),string_space)
 
                 self.labelInfo.setText(string)
         else:
@@ -125,9 +129,17 @@ class SettingWidget(qt.QMainWindow):
     def _saveParameters(self):
         path = self.PathTmpFilesSave.valueLineEdit()
         self.parameter['pini_parameters']['home_collection']['path'] = str(Path(path))
-
         with open(self.path_xml, 'w') as result_file:
             result_file.write(xmltodict.unparse(self.parameter))
+
+        self.parent.startUpArchive._testFolderWriteable()
+
+        if (self.pathArchiveInit != self.PathTmpFilesSave.textEdit) or (not self.parent.startUpArchive.flag_writeable):
+            self.parent.startUpArchive._startUpMessageBox()
+        elif self.parent.startUpArchive.flag_writeable:
+            self.close()
+
+
 
     def _loadConfigFile(self):
         with open(self.path_xml) as fd:

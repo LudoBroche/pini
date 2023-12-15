@@ -7,22 +7,68 @@ from datetime import datetime
 import glob
 import importQt as qt
 import getpass
-
+from lib import h5pyImport
 
 class AlignDelegate(qt.QStyledItemDelegate):
     def initStyleOption(self, option, index):
         super(AlignDelegate, self).initStyleOption(option, index)
         option.displayAlignment = qt.Qt.AlignCenter
 
-class StartUpArchive(qt.QMainWindow):
 
+class StartUpArchive(qt.QMainWindow):
     def __init__(self, parent=None ):
-        super(StartUpArchive, self).__init__(parent)
+        qt.QMainWindow.__init__(self, parent)
+        self.parent = parent
+        self.setWindowTitle('Archive')
+        self.setWindowIcon(qt.QIcon('./Icones/transp.png'))
         self.path_xml = Path('./config.xml')
+        self._testFolderWriteable()
+        self._startUpMessageBox()
+
+
+    def _testFolderWriteable(self):
         self._loadConfigFile()
         self.pathFolderArchive = Path(self.parameter['pini_parameters']['home_collection']['path'])
         self._check4Archive()
-        self._buildArchiveWidget()
+
+        print("Folder Archive",self.pathFolderArchive)
+        # Testing if Archive Folder is writable.  It's easier to ask for forgiveness than for permission
+        self.flag_writeable = False
+        try:
+            file = open(str(self.pathFolderArchive) + '/tmp', 'w')
+            file.close()
+            os.remove(str(self.pathFolderArchive) + '/tmp')
+            self.flag_writeable = True
+        except:
+            self.flag_writeable = False
+
+    def _startUpMessageBox(self):
+        if self.flag_writeable :
+            if len(self.list_h5_archive) != 0:
+                qm = qt.QMessageBox()
+                qm.setWindowIcon(qt.QIcon('./Icones/transp.png'))
+                qm.setIcon(qt.QMessageBox.Information)
+                qm.setText("Found Archived Dataset. Do you want to import it ?")
+                qm.setWindowTitle(' ')
+                qm.setStandardButtons(qt.QMessageBox.Ok | qt.QMessageBox.No)
+                returnValue = qm.exec()
+                if returnValue == qt.QMessageBox.Ok:
+                    self._buildArchiveWidget()
+                else:
+                    self.arch = ArchiveHdf5()
+                    self.arch.createNewArchive()
+            else:
+                self.arch = ArchiveHdf5()
+                self.arch.createNewArchive()
+        else:
+            qmError = qt.QMessageBox()
+            qmError.setWindowIcon(qt.QIcon('./Icones/transp.png'))
+            qmError.setIcon(qt.QMessageBox.Information)
+            qmError.setText("The Current Archive Folder is not writeable. Make sure to select a writeable archive folder")
+            qmError.setWindowTitle(' ')
+            qmError.setStandardButtons(qt.QMessageBox.Ok)
+            qmError.exec()
+            self.parent.setting.show()
 
     def _loadConfigFile(self):
         with open(self.path_xml) as fd:
@@ -39,7 +85,8 @@ class StartUpArchive(qt.QMainWindow):
         self.buttonLayout.addWidget(self.importButton)
         self.buttonLayout.addWidget(self.deleteButton)
 
-
+        self.importButton.clicked.connect(self._importArchive)
+        self.deleteButton.clicked.connect(self._deleteArchive)
 
         self.tableArchive = qt.QTableWidget()
         delegate = AlignDelegate(self.tableArchive)
@@ -55,9 +102,6 @@ class StartUpArchive(qt.QMainWindow):
         self.tableArchive.setItem(0,3,qt.QTableWidgetItem("Dataset"))
         self.tableArchive.setItem(0, 4, qt.QTableWidgetItem("Import"))
         self.tableArchive.setItem(0, 5, qt.QTableWidgetItem("Delete"))
-
-
-
 
         header = self.tableArchive.horizontalHeader()
         header.setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
@@ -77,7 +121,6 @@ class StartUpArchive(qt.QMainWindow):
             self.tableArchive.setItem(i + 1, 2, qt.QTableWidgetItem(h5.attrs['modification_date'].split('.')[0]))
             self.tableArchive.setItem(i + 1, 3, qt.QTableWidgetItem(str(len(list(h5.keys())))))
 
-
             cBImp = qt.QCheckBox()
             cBImp.setStyleSheet("margin-left:20%; margin-right:20%;")
             cBDelete = qt.QCheckBox()
@@ -92,16 +135,13 @@ class StartUpArchive(qt.QMainWindow):
             cBImp.stateChanged.connect(self._selectImportChange)
             cBDelete.setObjectName(str(i))
             cBDelete.stateChanged.connect(self._selectDeleteChange)
-
-
-
+        h5.close()
         self.layoutArchiveW.addWidget(self.tableArchive)
         self.layoutArchiveW.addLayout(self.buttonLayout,1,0)
         self.mainWidget.setLayout(self.layoutArchiveW)
         self.setCentralWidget(self.mainWidget)
-        self.resize(800, 400)
+        self.resize(459, 400)
         self.show()
-
 
     def _selectDeleteChange(self):
         if self.sender().isChecked():
@@ -123,12 +163,22 @@ class StartUpArchive(qt.QMainWindow):
     def _check4Archive(self):
         self.list_h5_archive = glob.glob(str(self.pathFolderArchive) + '/*.h5')
 
+    def _importArchive(self):
+        for i, box in enumerate(self.list_item_load):
+            if box.isChecked():
+                path_to_open = self.list_h5_archive[i]
+                break
+        self.close()
+        self.parent.h5Import.show()
+        self.parent.h5Import.open_file(path_to_open)
 
+    def _deleteArchive(self):
+        for i, box in enumerate(self.list_item_delete):
+            if box.isChecked():
+                os.remove(self.list_h5_archive[i])
 
-
-
-
-
+        self._check4Archive()
+        self._buildArchiveWidget()
 
 
 
@@ -152,6 +202,7 @@ class ArchiveHdf5:
         current_date = '_'.join(current_date.split(' '))
         current_date = ''.join(current_date.split(':'))
         nameArchive = 'pini_'+current_date+'.h5'
+        self._loadConfigFile()
         self.pathArchive = Path(self.pathFolderArchive,nameArchive)
         self.archH5 = h5py.File(self.pathArchive,'a')
 
@@ -173,7 +224,7 @@ class ArchiveHdf5:
     def cleanUpAllArchive(self):
         if self.archH5 != None:
             self._closeArchive()
-
+        self._loadConfigFile()
         list_h5 = glob.glob(str(self.pathFolderArchive)+'/*.h5')
         for h5files in list_h5:
             os.remove(h5files)
@@ -197,11 +248,10 @@ class ArchiveHdf5:
         self.archH5[index].create_group("roi")
         self.archH5[index].create_group("pipeline")
 
-        print(self.archH5.keys())
         self._closeArchive()
 
     def populateImage(self,dicPar):
-        print(dicPar)
+        pass
 
 
 if __name__ == "__main__":

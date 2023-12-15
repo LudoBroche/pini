@@ -13,13 +13,14 @@ class MainWindow(qt.QMainWindow) :
     """
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
+        self.test = 1
         self.mainWidget = MainWidget(self)
         self.setCentralWidget(self.mainWidget)
         self.setting = SettingWidget(self)
         self.h5Import = h5pyImport.HDF5Importer(self)
         self.setWindowTitle('Pini')
         self._buildMenu()
-        self.startUpArchive = StartUpArchive()
+        self.startUpArchive = StartUpArchive(self)
 
     def _buildMenu(self):
         """
