@@ -345,10 +345,8 @@ class MainWidget(qt.QWidget):
             self.volumeRenderingGUI.DataList = self.Data_list
             self.volumeRenderingGUI.ItemLists = self.Items_list
 
-    def loadHDF5(self,path,hdf):
-        #self.arch.create
-
-        print(path,hdf)
+    def loadHDF5(self,pathFile,pathData,hdf):
+        print(pathFile, pathData,hdf)
 
 
 

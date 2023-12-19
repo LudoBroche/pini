@@ -463,9 +463,10 @@ class HDF5Importer(qt.QMainWindow):
     #
     def handle_add_import(self):
         hdf5widget = self.tabs.currentWidget()
-        path_to_import = hdf5widget.export_data()
+        pathFile = self.recent_files
+        pathData = hdf5widget.export_data()
         hdf = hdf5widget.hdf
-        self.app.mainWidget.loadHDF5(path_to_import,hdf)
+        self.app.mainWidget.loadHDF5(pathFile, pathData,hdf)
 
     def dragEnterEvent(self, event):
         """

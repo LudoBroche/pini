@@ -252,9 +252,36 @@ class StartUpArchive(qt.QMainWindow):
             if box.isChecked():
                 path_to_open = self.list_h5_archive[i]
                 break
-        self.close()
-        self.parent.h5Import.show()
-        self.parent.h5Import.open_file(path_to_open)
+
+        current_version = self.parameter['pini_parameters']['home_collection']['hdf5_pini_version']
+
+
+        self.arch = ArchiveHdf5()
+        self.arch.openArchive(path_to_open)
+
+        current_vers_hdf5pini = self.parameter['pini_parameters']['home_collection']['hdf5_pini_version']
+        file_version = self.arch.archH5.attrs['hdf5_pini_version']
+
+        if file_version != current_vers_hdf5pini:
+            msg = qt.QMessageBox()
+            msg.setWindowIcon(qt.QIcon('/Icones/transp.png'))
+            msg.setIcon(qt.QMessageBox.Warning)
+            msg.setStandardButtons(qt.QMessageBox.Ok|qt.QMessageBox.No)
+
+            fileOpen = Path(path_to_open).name
+            txt = "The file version '%s' don't match. (%s != %s)\n" %(fileOpen, file_version, current_version)
+            txt += "Some feature might not work\n."
+            txt += "Do you want to load it anyway ?"
+
+            msg.setText(txt)
+            msg.setWindowTitle(' ')
+            returnValue = msg.exec_()
+
+            if returnValue == qt.QMessageBox.Ok:
+                self.close()
+            else:
+                self.arch.archH5.close()
+
 
     def _deleteArchive(self):
 
@@ -289,6 +316,7 @@ class ArchiveHdf5:
         self.archH5 = h5py.File(self.pathArchive,'a')
 
         dt = h5py.special_dtype(vlen=str)
+        self.archH5.attrs['hdf5_pini_version'] = self.parameter['pini_parameters']['home_collection']['hdf5_pini_version']
         self.archH5.attrs["project_name"] = ''
         self.archH5.attrs["user"] = getpass.getuser()
         self.archH5.attrs["creation_date"] = str(dateTime)
