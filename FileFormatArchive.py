@@ -77,6 +77,8 @@ class StartUpArchive(qt.QMainWindow):
 
     def _buildArchiveWidget(self):
 
+        self._check4Archive()
+
         self.mainWidget = qt.QWidget()
         self.layoutArchiveW = qt.QGridLayout()
 
@@ -87,6 +89,9 @@ class StartUpArchive(qt.QMainWindow):
         self.buttonLayout.addWidget(self.importButton)
         self.buttonLayout.addWidget(self.newArchive)
         self.buttonLayout.addWidget(self.deleteButton)
+
+        self.importButton.setDisabled(True)
+        self.deleteButton.setDisabled(True)
 
         self.importButton.clicked.connect(self._importArchive)
         self.newArchive.clicked.connect(self._newArchive)
@@ -181,6 +186,7 @@ class StartUpArchive(qt.QMainWindow):
 
     def _selectDeleteChange(self):
 
+
         if self.sender().isChecked():
             idImport = self.sender().objectName()
             boxImport = self.list_item_load[int(idImport)]
@@ -192,6 +198,11 @@ class StartUpArchive(qt.QMainWindow):
         for arch in self.list_item_delete:
             if arch.isChecked():
                 total_archive_delete +=1
+        if total_archive_delete > 0:
+            self.deleteButton.setDisabled(False)
+        else:
+            self.deleteButton.setDisabled(True)
+
 
         for arch in self.list_item_delete:
             if ((Total_archive - total_archive_delete) == 1):
@@ -202,13 +213,29 @@ class StartUpArchive(qt.QMainWindow):
 
     def _selectImportChange(self):
         if self.sender().isChecked():
+            self.importButton.setDisabled(False)
             idImport = self.sender().objectName()
             boxDelete = self.list_item_delete[int(idImport)]
             if boxDelete.isChecked():
                 boxDelete.setChecked(False)
+
+            total_checked = 0
             for box in self.list_item_load:
                 if box.objectName() != idImport:
                     box.setChecked(False)
+                if box.isChecked():
+                    total_checked += 1
+
+        else:
+            total_checked = 0
+            for box in self.list_item_load:
+                if box.isChecked():
+                    total_checked += 1
+            if total_checked:
+                self.importButton.setDisabled(False)
+            else:
+                self.importButton.setDisabled(True)
+
 
     def _check4Archive(self):
         self.list_h5_archive = glob.glob(str(self.pathFolderArchive) + '/*.h5')
