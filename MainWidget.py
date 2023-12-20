@@ -7,7 +7,7 @@ from SliceViualizer import Interactor3D
 from VolumeRenderingGUI import VolumeRenderingGUI
 from ProgressBarWidget import ProgressBar
 from FileFormatArchive import ArchiveHdf5
-
+from pathlib import Path
 
 class MainWidget(qt.QWidget):
     def __init__(self, parent=None):
@@ -346,6 +346,12 @@ class MainWidget(qt.QWidget):
             self.volumeRenderingGUI.ItemLists = self.Items_list
 
     def loadHDF5(self,pathFile,pathData,hdf):
+        #self.imageSelection
+
+        nameImage = Path(pathFile[0]).name
+        self.parent.startUpArchive.arch.openCurrentArchive()
+        self.formatH5 = self.parent.startUpArchive.arch
+        self.archH5 = self.dataFormat.archH5
         print(pathFile, pathData,hdf)
 
 

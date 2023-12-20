@@ -50,9 +50,9 @@ class StartUpArchive(qt.QMainWindow):
                 qm.setIcon(qt.QMessageBox.Information)
                 qm.setText("Found Archived Dataset. Do you want to import it ?")
                 qm.setWindowTitle(' ')
-                qm.setStandardButtons(qt.QMessageBox.Ok | qt.QMessageBox.No)
+                qm.setStandardButtons(qt.QMessageBox.Yes | qt.QMessageBox.No)
                 returnValue = qm.exec()
-                if returnValue == qt.QMessageBox.Ok:
+                if returnValue == qt.QMessageBox.Yes:
                     self._buildArchiveWidget()
                 else:
                     self.arch = ArchiveHdf5()
@@ -66,7 +66,7 @@ class StartUpArchive(qt.QMainWindow):
             qmError.setIcon(qt.QMessageBox.Information)
             qmError.setText("The Current Archive Folder is not writeable. Make sure to select a writeable archive folder")
             qmError.setWindowTitle(' ')
-            qmError.setStandardButtons(qt.QMessageBox.Ok)
+            qmError.setStandardButtons(qt.QMessageBox.Yes)
             qmError.exec()
             self.parent.setting.show()
 
@@ -266,7 +266,7 @@ class StartUpArchive(qt.QMainWindow):
             msg = qt.QMessageBox()
             msg.setWindowIcon(qt.QIcon('/Icones/transp.png'))
             msg.setIcon(qt.QMessageBox.Warning)
-            msg.setStandardButtons(qt.QMessageBox.Ok|qt.QMessageBox.No)
+            msg.setStandardButtons(qt.QMessageBox.Yes|qt.QMessageBox.No)
 
             fileOpen = Path(path_to_open).name
             txt = "The file version '%s' don't match. (%s != %s)\n" %(fileOpen, file_version, current_version)
@@ -277,10 +277,12 @@ class StartUpArchive(qt.QMainWindow):
             msg.setWindowTitle(' ')
             returnValue = msg.exec_()
 
-            if returnValue == qt.QMessageBox.Ok:
+            if returnValue == qt.QMessageBox.Yes:
                 self.close()
             else:
                 self.arch.archH5.close()
+        else:
+            self.close()
 
 
     def _deleteArchive(self):
@@ -291,6 +293,23 @@ class StartUpArchive(qt.QMainWindow):
         self._check4Archive()
         self._buildArchiveWidget()
 
+    def closeEvent(self,event):
+        if self.arch == None:
+            self.arch = ArchiveHdf5()
+            self.arch.createNewArchive()
+            name = Path(self.arch.pathArchive).name
+
+            msg = qt.QMessageBox()
+            msg.setWindowIcon(qt.QIcon('/Icones/transp.png'))
+            msg.setIcon(qt.QMessageBox.Warning)
+            msg.setStandardButtons(qt.QMessageBox.Yes)
+
+            txt = "No Project imported or created. Creation of %s"%(name)
+            msg.setText(txt)
+            msg.setWindowTitle(' ')
+            returnValue = msg.exec_()
+
+        event.accept()
 
 class ArchiveHdf5:
     def __init__(self):
@@ -327,6 +346,9 @@ class ArchiveHdf5:
 
     def openArchive(self,archivePath):
         self.pathArchive = Path(archivePath)
+        self.archH5 = h5py.File(self.pathArchive,'a')
+
+    def openCurrentArchive(self):
         self.archH5 = h5py.File(self.pathArchive,'a')
 
     def _closeArchive(self):
