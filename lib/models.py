@@ -294,7 +294,7 @@ class DataTableModel(qt.QAbstractTableModel):
                 if self.ndim == 0:
                     try:
                         q = str(self.node.asstr()[...])
-                    except TypeError:
+                    except AttributeError:
                         q = str(self.node[...])
 
                 elif self.ndim == 1:

@@ -351,9 +351,31 @@ class MainWidget(qt.QWidget):
         nameImage = Path(pathFile[0]).name
         self.parent.startUpArchive.arch.openCurrentArchive()
         self.formatH5 = self.parent.startUpArchive.arch
-        self.archH5 = self.dataFormat.archH5
-        print(pathFile, pathData,hdf)
 
+        self.archH5 = self.formatH5.archH5
+        self.formatH5.createEmptyImage()
+        dicPar = {}
+
+        dicPar['name'] = hdf.attrs['file_name'].split('/')[-1].split('.')[0]
+        dicPar['path_original_source_file'] = hdf.attrs['file_name']
+        dicPar['path_current_source_file'] = pathFile
+        dicPar['path_data'] = pathData
+
+
+        shapeData = hdf[pathData].shape
+        typeData = hdf[pathData].dtype
+
+        print(dicPar,shapeData,typeData)
+
+
+        """
+        self.archH5[self.formatH5.currentIndex].attrs["name"] = dicPar['name']
+        self.archH5[self.formatH5.currentIndex].attrs["path_source_file"] = dicPar['path_source_file']
+        self.archH5[self.formatH5.currentIndex].attrs["path_data"] = dicPar['path_data']
+
+        #self.archH5.populateImage(dicPar)
+        print(pathFile, pathData,hdf)
+        """
 
 
 

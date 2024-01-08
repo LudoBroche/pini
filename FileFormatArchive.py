@@ -370,11 +370,15 @@ class ArchiveHdf5:
             index = max(index_list)+1
             index = str(index).zfill(5)
 
+        self.currentIndex = index
+
         dt = h5py.special_dtype(vlen=str)
 
         self.archH5.create_group(index)
         self.archH5[index].attrs["name"] = h5py.Empty(dt)
-        self.archH5[index].attrs["path_source"] = h5py.Empty(dt)
+        self.archH5[index].attrs["path_original_source_file"] = h5py.Empty(dt)
+        self.archH5[index].attrs["path_current_source_file"] = h5py.Empty(dt)
+        self.archH5[index].attrs["path_data"] = h5py.Empty(dt)
         self.archH5[index].attrs["data_type"] = h5py.Empty(dt)
         self.archH5[index].create_dataset("pixel_size", dtype="f")
         self.archH5[index].create_dataset("data", dtype="f")
