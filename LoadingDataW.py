@@ -1,3 +1,5 @@
+import time
+
 import importQt as qt
 import sys
 class LoadingDataW(qt.QMainWindow):
@@ -18,9 +20,9 @@ class LoadingDataW(qt.QMainWindow):
         self.mainWidget = qt.QWidget()
         self.layoutLoadingData = qt.QGridLayout()
 
-        nbAxis = len(shapeImage)
-        nb_vector_2d = shapeImage.count(2)
-        nb_vector_3d = shapeImage.count(3)
+        nbAxis = len(self.shapeData)
+        nb_vector_2d = self.shapeData.count(2)
+        nb_vector_3d = self.shapeData.count(3)
 
 
         infoTxt = "%d axis detected"%nbAxis
@@ -40,15 +42,16 @@ class LoadingDataW(qt.QMainWindow):
             elif (nb_vector_3d != 0):
                 infoTxt += " including 3D vector field(s)"
                 flag_vector_3D = True
-                pos_axis_v3D = shapeImage.index(3)
+                pos_axis_v3D = self.shapeData.index(3)
             else:
                 infoTxt += " including 2D vector field(s)"
                 flag_vector_2D = True
-                pos_axis_v2D = shapeImage.index(2)
+                pos_axis_v2D = self.shapeData.index(2)
 
         self.listWidgetAxis = []
         self.listUnitCB = []
-        listWidgetLabels = []
+        self.listUnitLineEdit = []
+        self.listWidgetLabels = []
 
 
         layoutHorizontal = qt.QHBoxLayout()
@@ -60,6 +63,10 @@ class LoadingDataW(qt.QMainWindow):
         for i in range(0,nbAxis):
             comboBox = qt.QComboBox()
             unitCB = UnitEditor()
+            unitCB.unitValueEdit.editingFinished.connect(self._unitValueChanged)
+            unitCB.unitCB.currentTextChanged.connect(self._unitComboChanged)
+            unitCB.unitValueEdit.setObjectName(str(i))
+            unitCB.unitCB.setObjectName(str(i))
             self.listUnitCB.append(unitCB)
             if nbAxis == 1:
                 msg = qt.QMessageBox()
@@ -134,8 +141,8 @@ class LoadingDataW(qt.QMainWindow):
             self.listWidgetAxis.append(comboBox)
             layoutHorizontal.addWidget(comboBox)
             layoutHorizontalU.addLayout(unitCB)
-            labelAxis = qt.QLabel('Axe%d (%d px)'%(i,shapeImage[i]))
-            listWidgetLabels.append(labelAxis)
+            labelAxis = qt.QLabel('Axe%d (%d px)'%(i,self.shapeData[i]))
+            self.listWidgetLabels.append(labelAxis)
             labelLayout.addWidget(labelAxis)
 
 
@@ -151,10 +158,139 @@ class LoadingDataW(qt.QMainWindow):
         self.setCentralWidget(self.mainWidget)
         self.show()
 
+    def _convertUnit(self,unitType, value):
+
+        distanceList = ['m','mm','μm','nm','pm']
+        angleList = ['°','rad','mrad','μrad']
+        timeList = ['Days','Hours','min','s','ms','μs','ns','ps','fs']
+
+        if unitType in distanceList:
+            if value < 1 and unitType != 'pm':
+                unitTypeNew = distanceList[distanceList.index(unitType)+1]
+                valueNew = value * 1000.0
+                unitTypeNew, valueNew = self._convertUnit(unitTypeNew,valueNew)
+            elif value > 1000.0 and unitType != 'm':
+                unitTypeNew = distanceList[distanceList.index(unitType)-1]
+                valueNew = value / 1000.0
+                unitTypeNew, valueNew = self._convertUnit(unitTypeNew, valueNew)
+            else:
+                unitTypeNew = unitType
+                valueNew = value
+
+        elif unitType in  angleList:
+            if unitType in ['rad','mrad','μrad']:
+
+                if value < 1  and unitType != 'μrad':
+                    unitTypeNew = angleList[angleList.index(unitType) + 1]
+                    valueNew = value * 1000.0
+                    unitTypeNew, valueNew = self._convertUnit(unitTypeNew, valueNew)
+                elif value > 1000  and unitType != 'rad':
+                    unitTypeNew = angleList[angleList.index(unitType) - 1]
+                    valueNew = value / 1000.0
+                    unitTypeNew, valueNew = self._convertUnit(unitTypeNew, valueNew)
+                else:
+                    unitTypeNew = unitType
+                    valueNew = value
+
+            elif unitType == '°':
+                unitTypeNew = unitType
+                valueNew = value
+            elif unitType == '360/°':
+                unitTypeNew = unitType
+                valueNew = int(value)
+
+        elif unitType in timeList:
+            if value > 24 and unitType  ==  'Hours':
+                valueNew = value/24.0
+                unitTypeNew = timeList[timeList.index(unitType)-1]
+            elif value > 60 and (unitType in ['min','s']):
+                valueNew = value/60.0
+                unitTypeNew = timeList[timeList.index(unitType)-1]
+                unitTypeNew, valueNew = self._convertUnit(unitTypeNew, valueNew)
+            elif value > 1000.0 and unitType != 'Days':
+                valueNew = value / 1000.0
+                unitTypeNew = timeList[timeList.index(unitType) - 1]
+                unitTypeNew, valueNew = self._convertUnit(unitTypeNew, valueNew)
+            elif value < 1 and unitType  ==  'Days':
+                valueNew = 24.0 * value
+                unitTypeNew = timeList[timeList.index(unitType)+1]
+                unitTypeNew, valueNew = self._convertUnit(unitTypeNew, valueNew)
+            elif value <1 and (unitType in ['Hours','min']):
+                valueNew = value * 60
+                unitTypeNew = timeList[timeList.index(unitType) + 1]
+                unitTypeNew, valueNew = self._convertUnit(unitTypeNew, valueNew)
+            elif value <1 and unitType != 'fs':
+                valueNew = value *1000.0
+                unitTypeNew = timeList[timeList.index(unitType) + 1]
+                unitTypeNew, valueNew = self._convertUnit(unitTypeNew, valueNew)
+            else:
+                unitTypeNew = unitType
+                valueNew = value
+
+        return unitTypeNew, valueNew
+
+    def _unitComboChanged(self):
+
+        unitSelect = self.sender().currentText()
+        indexChanged = int(self.sender().objectName())
+        unitLineEdit =  self.listUnitCB[indexChanged].unitValueEdit
+        indexTxt = unitLineEdit.text()
+
+        time.sleep(0.1)
+        unitLineEdit.setText(str(indexTxt))
+
+        if len(self.listWidgetLabels) > indexChanged:
+            labelW = self.listWidgetLabels[indexChanged]
+            try:
+                float(indexTxt)
+            except ValueError:
+                indexTxt = '1.0'
+
+            indexTxt = str(abs(float(indexTxt)))
+
+
+            value = self.shapeData[indexChanged] * float(indexTxt)
+
+            unitLabel, valueLabel = self._convertUnit(unitSelect,value)
+
+            txtToDisplay  = 'Axe%d (%d px - %d %s)' % (indexChanged, self.shapeData[indexChanged],valueLabel,unitLabel)
+            labelW.setText(txtToDisplay)
+
+
+
+
+
+
+
+    def _unitValueChanged(self):
+        indexTxt = self.sender().text()
+        indexChanged = int(self.sender().objectName())
+        unitCB =  self.listUnitCB[indexChanged].unitCB
+        labelW = self.listWidgetLabels[indexChanged]
+
+        try:
+            float(indexTxt)
+        except ValueError:
+            indexTxt = '1.0'
+
+        indexTxt = str(abs(float(indexTxt)))
+
+
+        value = self.shapeData[indexChanged] * float(indexTxt)
+        unitLabel, valueLabel = self._convertUnit(unitCB.currentText(),value)
+        unit, value = self._convertUnit(unitCB.currentText(), float(indexTxt))
+
+        unitCB.setCurrentText(unit)
+        self.sender().setText(str(value))
+        txtToDisplay  = 'Axe%d (%d px - %d %s)' % (indexChanged, self.shapeData[indexChanged],valueLabel,unitLabel)
+        labelW.setText(txtToDisplay)
+
+
     def _comboBoxChanged(self):
         indexTxt = self.sender().currentText()
         indexChanged = int(self.sender().objectName())
         unitCB = self.listUnitCB[indexChanged]
+        labelW = self.listWidgetLabels[indexChanged]
 
         if indexTxt in ['X','Y','Z','(Dx,Dy)','(Dx,Dy,Dz)']:
             unitCB.setDistanceList()
@@ -178,13 +314,11 @@ class LoadingDataW(qt.QMainWindow):
                 w.setCurrentText(itemToUse)
 
 
+        value = self.shapeData[indexChanged] * float(unitCB.unitValueEdit.text())
+        unit, value = self._convertUnit(unitCB.unitCB.currentText(),value)
+        txtToDisplay  = 'Axe%d (%d px - %d %s)' % (indexChanged, self.shapeData[indexChanged],value,unit)
+        labelW.setText(txtToDisplay)
 
-
-        # if self.sender().isChecked():
-        #     idImport = self.sender().objectName()
-        #     boxImport = self.list_item_load[int(idImport)]
-        #     if boxImport.isChecked():
-        #         boxImport.setChecked(False)
 
 class EditableComboBox(qt.QComboBox):
     def __init__(self):
@@ -209,9 +343,9 @@ class UnitEditor(qt.QHBoxLayout):
         self.addWidget(self.unitValueEdit)
         self.addWidget(self.unitCB)
 
-        self.distanceList = ['m','mm','μm','nm','Å','pm']
-        self.angleList = ['°','rad','projections (360)']
-        self.timeList = ['Days','Hours','m','s','ms','μs','ns','ps','fs']
+        self.distanceList = ['m','mm','μm','nm','pm']
+        self.angleList = ['°','rad','mrad','μrad']
+        self.timeList = ['Days','Hours','min','s','ms','μs','ns','ps','fs']
 
 
     def setDistanceList(self):
@@ -234,15 +368,14 @@ class UnitEditor(qt.QHBoxLayout):
 
 
 if __name__ == "__main__":
+
     name = 'Image'
     Path = '\\data\\'
     dtype = type('uint16')
-    shapeImage = (500,500)
+    shapeImage = (500,500,100)
 
     app = qt.QApplication(["-display"])
     m =  LoadingDataW(shapeImage=shapeImage,dtypeData=dtype,nameImage=name,pathImage=Path)
-    #m.show()
     sys.exit(app.exec_())
-
 
 
