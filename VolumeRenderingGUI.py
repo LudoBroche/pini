@@ -47,11 +47,11 @@ class VolumeRenderingGUI(qt.QWidget):
         self.LayoutPlane = qt.QHBoxLayout()
 
         self.Xplane = LabelEditAndButton(True, "X: ", True, str(0), False)
-        self.Xplane.setMaximumWidth(width_widget/3.0)
+        self.Xplane.setMaximumWidth(int(width_widget/3.0))
         self.Yplane = LabelEditAndButton(True, "Y: ", True, str(0), False)
-        self.Yplane.setMaximumWidth(width_widget/3.0)
+        self.Yplane.setMaximumWidth(int(width_widget/3.0))
         self.Zplane = LabelEditAndButton(True, "Z: ", True, str(0), False)
-        self.Zplane.setMaximumWidth(width_widget/3.0)
+        self.Zplane.setMaximumWidth(int(width_widget/3.0))
         self.LayoutPlane.addWidget(self.Xplane)
         self.LayoutPlane.addWidget(self.Yplane)
         self.LayoutPlane.addWidget(self.Zplane)
@@ -168,7 +168,7 @@ class VolumeRenderingGUI(qt.QWidget):
         self.sliderAmb = SliderAndLabel.SliderAndLabelSpecificScale()
         self.sliderAmb.setMaximumWidth(width_widget)
         self.sliderAmb._setStepPrecision(0.05)
-        self.sliderAmb._setRange(0,100.0)
+        self.sliderAmb._setRange(0,100)
         self.sliderAmb.setContentsMargins(-1,0,-1,-1)
 
         self.LabelDif=qt.QLabel("Diffuse lighting Coefficient")
@@ -176,7 +176,7 @@ class VolumeRenderingGUI(qt.QWidget):
         self.sliderDif = SliderAndLabel.SliderAndLabelSpecificScale()
         self.sliderDif.setMaximumWidth(width_widget)
         self.sliderDif._setStepPrecision(0.05)
-        self.sliderDif._setRange(0,100.0)
+        self.sliderDif._setRange(0,100)
         self.sliderDif.setContentsMargins(-1,0,-1,-1)
 
         self.LabelSpe=qt.QLabel("Specular lighting Coefficient")

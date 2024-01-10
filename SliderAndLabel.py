@@ -56,15 +56,15 @@ class SliderAndLabelSpecificScale(qt.QWidget):
         self.Coef = 1.0/Pres
 
     def _defaultValue(self,Value):
-        self.slider.setValue(Value*self.Coef)
+        self.slider.setValue(int(Value*self.Coef))
         self._changeLabel()
 
     def _setOrientation(self):
         self.slider.setOrientation(1)
 
     def _setRange(self,mini,maxi):
-        self.slider.setMinimum(mini*self.Coef)
-        self.slider.setMaximum(maxi*self.Coef)
+        self.slider.setMinimum(int(mini*self.Coef))
+        self.slider.setMaximum(int(maxi*self.Coef))
         self._changeLabel()
 
     def value(self):

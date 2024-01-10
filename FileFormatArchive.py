@@ -332,6 +332,7 @@ class ArchiveHdf5:
         nameArchive = 'pini_'+current_date+'.h5'
         self._loadConfigFile()
         self.pathArchive = Path(self.pathFolderArchive,nameArchive)
+
         self.archH5 = h5py.File(self.pathArchive,'a')
 
         dt = h5py.special_dtype(vlen=str)

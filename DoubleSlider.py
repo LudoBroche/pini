@@ -44,11 +44,11 @@ class DoubleSlider(qt.QWidget):
         orientation = qt.Qt.Horizontal
 
         self.minSlider = MySlider(self, orientation)
-        self.minSlider.setRange(0, 100.)
+        self.minSlider.setRange(0, 100)
         self.minSlider.setValue(0)
         self.maxSlider = MySlider(self, orientation)
-        self.maxSlider.setRange(0, 100.0)
-        self.maxSlider.setValue(100.)
+        self.maxSlider.setRange(0, 100)
+        self.maxSlider.setValue(100)
         self.mainLayout.addWidget(self.maxSlider)
         self.mainLayout.addWidget(self.minSlider)
         self.minSlider.sigValueChanged.connect(self._sliderChanged)

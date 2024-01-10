@@ -1,4 +1,3 @@
-import time
 
 import importQt as qt
 import sys
@@ -26,10 +25,10 @@ class LoadingDataW(qt.QMainWindow):
 
 
         infoTxt = "%d axis detected"%nbAxis
-        flag_vector_3D = False
-        flag_vector_2D = False
-        pos_axis_v2D = -1
-        pos_axis_v3D = -1
+        self.flag_vector_3D = False
+        self.flag_vector_2D = False
+        self.pos_axis_v2D = -1
+        self.pos_axis_v3D = -1
 
         if (nb_vector_3d != 0) or (nb_vector_2d !=0):
             if (nb_vector_3d != 0) and (nb_vector_2d !=0):
@@ -39,14 +38,26 @@ class LoadingDataW(qt.QMainWindow):
                 msg.setInformativeText('Incorect Vector field format')
                 msg.setWindowTitle("Error")
                 msg.exec_()
+                self.close()
+                return 0
             elif (nb_vector_3d != 0):
                 infoTxt += " including 3D vector field(s)"
-                flag_vector_3D = True
-                pos_axis_v3D = self.shapeData.index(3)
+                self.flag_vector_3D = True
+                self.pos_axis_v3D = self.shapeData.index(3)
             else:
                 infoTxt += " including 2D vector field(s)"
-                flag_vector_2D = True
-                pos_axis_v2D = self.shapeData.index(2)
+                self.flag_vector_2D = True
+                self.pos_axis_v2D = self.shapeData.index(2)
+
+
+        layoutName = qt.QHBoxLayout()
+        label = qt.QLabel('Image Name')
+        self.nameEdit = qt.QLineEdit(self.nameImage)
+
+        layoutName.addWidget(label)
+        layoutName.addWidget(self.nameEdit)
+
+        self.nameEdit.textChanged.connect(self._changeNameImage)
 
         self.listWidgetAxis = []
         self.listUnitCB = []
@@ -64,7 +75,8 @@ class LoadingDataW(qt.QMainWindow):
             comboBox = qt.QComboBox()
             unitCB = UnitEditor()
             unitCB.unitValueEdit.editingFinished.connect(self._unitValueChanged)
-            unitCB.unitCB.currentTextChanged.connect(self._unitComboChanged)
+            unitCB.unitValueEdit.textChanged.connect(self._unitValueEditing)
+            unitCB.unitCB.currentIndexChanged.connect(self._unitComboChanged)
             unitCB.unitValueEdit.setObjectName(str(i))
             unitCB.unitCB.setObjectName(str(i))
             self.listUnitCB.append(unitCB)
@@ -75,42 +87,54 @@ class LoadingDataW(qt.QMainWindow):
                 msg.setInformativeText('1D Data detected')
                 msg.setWindowTitle("Error")
                 msg.exec_()
+                self.close()
+                return 0
 
             elif nbAxis == 2:
                 listToDisplay = ['X','Y','Angle']
                 indexPreSelect += 1
             elif nbAxis == 3:
-                if not flag_vector_2D:
+                if self.flag_vector_3D:
+                    msg = qt.QMessageBox()
+                    msg.setIcon(qt.QMessageBox.Critical)
+                    msg.setText("Error")
+                    msg.setInformativeText('3D Vector Field is not compatible with 2D images')
+                    msg.setWindowTitle("Error")
+                    msg.exec_()
+                    self.close()
+                    return 0
+
+                elif not self.flag_vector_2D:
                     listToDisplay = ['X','Y','Z','Time','Angle']
                     indexPreSelect += 1
                 else:
-                    if i == pos_axis_v2D:
+                    if i == self.pos_axis_v2D:
                         listToDisplay = ['(Dx,Dy)']
                     else:
                         listToDisplay = ['X', 'Y']
                         indexPreSelect += 1
             elif nbAxis == 4:
-                if not flag_vector_2D and not flag_vector_3D:
+                if not self.flag_vector_2D and not self.flag_vector_3D:
                     listToDisplay = ['X','Y','Z','Time']
                     indexPreSelect += 1
-                elif flag_vector_2D:
-                    if i == pos_axis_v2D:
+                elif self.flag_vector_2D:
+                    if i == self.pos_axis_v2D:
                         listToDisplay = ['(Dx,Dy)']
                     else:
-                        listToDisplay = ['X', 'Y', 'T']
+                        listToDisplay = ['X', 'Y', 'Time']
                         indexPreSelect += 1
                 else:
-                    if i == pos_axis_v3D:
+                    if i == self.pos_axis_v3D:
                         listToDisplay = ['(Dx,Dy,Dz)']
                     else:
                         listToDisplay = ['X', 'Y', 'Z']
                         indexPreSelect += 1
             elif nbAxis == 5:
-                if flag_vector_3D:
-                    if i == pos_axis_v3D:
+                if self.flag_vector_3D:
+                    if i == self.pos_axis_v3D:
                         listToDisplay = ['(Dx,Dy,Dz)']
                     else:
-                        listToDisplay = ['X', 'Y', 'Z', 'T']
+                        listToDisplay = ['X', 'Y', 'Z', 'Time']
                         indexPreSelect += 1
 
                 else:
@@ -120,9 +144,11 @@ class LoadingDataW(qt.QMainWindow):
                     msg.setInformativeText('Data with too many axis')
                     msg.setWindowTitle("Error")
                     msg.exec_()
+                    self.close()
 
             comboBox.addItems(listToDisplay)
-            if (not flag_vector_2D and not flag_vector_3D) or ((i != pos_axis_v2D) and (i != pos_axis_v3D)):
+
+            if (not self.flag_vector_2D and not self.flag_vector_3D) or ((i != self.pos_axis_v2D) and (i != self.pos_axis_v3D)):
                 comboBox.setCurrentIndex(indexPreSelect-1)
                 comboBox.setEnabled(True)
                 comboBox.currentTextChanged.connect(self._comboBoxChanged)
@@ -141,17 +167,42 @@ class LoadingDataW(qt.QMainWindow):
             self.listWidgetAxis.append(comboBox)
             layoutHorizontal.addWidget(comboBox)
             layoutHorizontalU.addLayout(unitCB)
-            labelAxis = qt.QLabel('Axe%d (%d px)'%(i,self.shapeData[i]))
+
+            unitType = unitCB.unitCB.currentText()
+            pxSize = unitCB.unitValueEdit.text()
+            value = float(pxSize) * self.shapeData[i]
+
+            unitType, value = self._convertUnit(unitType,value)
+
+            if (not self.flag_vector_2D and not self.flag_vector_3D) or ((i != self.pos_axis_v2D) and (i != self.pos_axis_v3D)):
+                labelAxis = qt.QLabel(f'Axe{i} ({self.shapeData[i]} px - {value:.2f} {unitType})')
+            elif  self.flag_vector_3D:
+                labelAxis = qt.QLabel(f'Axe{i} (3D Vector Field)')
+            else:
+                labelAxis = qt.QLabel(f'Axe{i} (2D Vector Field)')
+
+
+            labelAxis.setAlignment(qt.Qt.AlignCenter)
             self.listWidgetLabels.append(labelAxis)
             labelLayout.addWidget(labelAxis)
 
 
         label = qt.QLabel(infoTxt)
+        label.setAlignment(qt.Qt.AlignCenter)
 
+        self.validateButton = qt.QPushButton('Load')
+        verticalSpacerBig = qt.QSpacerItem(20, 20, qt.QSizePolicy.Minimum, qt.QSizePolicy.Expanding)
+        verticalSpacerSmall = qt.QSpacerItem(20, 5, qt.QSizePolicy.Minimum, qt.QSizePolicy.Expanding)
+
+        self.layoutLoadingData.addLayout(layoutName,0,0)
+        self.layoutLoadingData.addItem(verticalSpacerBig)
         self.layoutLoadingData.addWidget(label)
-        self.layoutLoadingData.addLayout(labelLayout,1,0)
-        self.layoutLoadingData.addLayout(layoutHorizontal,2,0)
-        self.layoutLoadingData.addLayout(layoutHorizontalU, 3, 0)
+        self.layoutLoadingData.addItem(verticalSpacerSmall)
+        self.layoutLoadingData.addLayout(labelLayout,4,0)
+        self.layoutLoadingData.addLayout(layoutHorizontal,5,0)
+        self.layoutLoadingData.addLayout(layoutHorizontalU, 6, 0)
+        self.layoutLoadingData.addItem(verticalSpacerBig)
+        self.layoutLoadingData.addWidget(self.validateButton)
 
 
         self.mainWidget.setLayout(self.layoutLoadingData)
@@ -199,6 +250,7 @@ class LoadingDataW(qt.QMainWindow):
                 unitTypeNew = unitType
                 valueNew = int(value)
 
+
         elif unitType in timeList:
             if value > 24 and unitType  ==  'Hours':
                 valueNew = value/24.0
@@ -226,20 +278,29 @@ class LoadingDataW(qt.QMainWindow):
             else:
                 unitTypeNew = unitType
                 valueNew = value
+        else:
+            unitTypeNew = unitType
+            valueNew =value
 
         return unitTypeNew, valueNew
 
     def _unitComboChanged(self):
 
-        unitSelect = self.sender().currentText()
         indexChanged = int(self.sender().objectName())
-        unitLineEdit =  self.listUnitCB[indexChanged].unitValueEdit
-        indexTxt = unitLineEdit.text()
-
-        time.sleep(0.1)
-        unitLineEdit.setText(str(indexTxt))
-
         if len(self.listWidgetLabels) > indexChanged:
+            unitSelect = self.sender().currentText()
+            unitLineEdit =  self.listUnitCB[indexChanged].unitValueEdit
+
+            if unitSelect == 'px':
+                unitLineEdit.setText('1.0')
+                unitLineEdit.setDisabled(True)
+            else:
+                unitLineEdit.setDisabled(False)
+            indexTxt = unitLineEdit.text()
+
+            unitLineEdit.setText(str(indexTxt))
+
+
             labelW = self.listWidgetLabels[indexChanged]
             try:
                 float(indexTxt)
@@ -253,14 +314,22 @@ class LoadingDataW(qt.QMainWindow):
 
             unitLabel, valueLabel = self._convertUnit(unitSelect,value)
 
-            txtToDisplay  = 'Axe%d (%d px - %d %s)' % (indexChanged, self.shapeData[indexChanged],valueLabel,unitLabel)
+
+            if (not self.flag_vector_2D and not self.flag_vector_3D) or ((indexChanged != self.pos_axis_v2D) and (indexChanged != self.pos_axis_v3D)):
+                txtToDisplay = f'Axe{indexChanged} ({self.shapeData[indexChanged]} px - {valueLabel:.2f} {unitLabel})'
+            elif  self.flag_vector_3D:
+                txtToDisplay = f'Axe{indexChanged} (3D Vector Field)'
+            else:
+                txtToDisplay = f'Axe{indexChanged} (2D Vector Field)'
+
+
+
             labelW.setText(txtToDisplay)
-
-
-
-
-
-
+            labelW.setAlignment(qt.Qt.AlignCenter)
+    def _unitValueEditing(self):
+        indexChanged = int(self.sender().objectName())
+        unitCB = self.listUnitCB[indexChanged].unitCB
+        unitCB.setDisabled(True)
 
     def _unitValueChanged(self):
         indexTxt = self.sender().text()
@@ -282,15 +351,36 @@ class LoadingDataW(qt.QMainWindow):
 
         unitCB.setCurrentText(unit)
         self.sender().setText(str(value))
-        txtToDisplay  = 'Axe%d (%d px - %d %s)' % (indexChanged, self.shapeData[indexChanged],valueLabel,unitLabel)
-        labelW.setText(txtToDisplay)
 
+
+        if (not self.flag_vector_2D and not self.flag_vector_3D) or (
+                (indexChanged != self.pos_axis_v2D) and (indexChanged != self.pos_axis_v3D)):
+            txtToDisplay = f'Axe{indexChanged} ({self.shapeData[indexChanged]} px - {valueLabel:.2f} {unitLabel})'
+        elif self.flag_vector_3D:
+            txtToDisplay = f'Axe{indexChanged} (3D Vector Field)'
+        else:
+            txtToDisplay = f'Axe{indexChanged} (2D Vector Field)'
+
+
+        labelW.setText(txtToDisplay)
+        labelW.setAlignment(qt.Qt.AlignCenter)
+        unitCB.setDisabled(False)
+
+    def _changeNameImage(self):
+
+        nameWindow = f'{self.nameEdit.text()}    {self.pathData}'
+        self.setWindowTitle(nameWindow)
 
     def _comboBoxChanged(self):
+
         indexTxt = self.sender().currentText()
         indexChanged = int(self.sender().objectName())
         unitCB = self.listUnitCB[indexChanged]
+
+        print(indexTxt)
+
         labelW = self.listWidgetLabels[indexChanged]
+
 
         if indexTxt in ['X','Y','Z','(Dx,Dy)','(Dx,Dy,Dz)']:
             unitCB.setDistanceList()
@@ -315,16 +405,28 @@ class LoadingDataW(qt.QMainWindow):
 
 
         value = self.shapeData[indexChanged] * float(unitCB.unitValueEdit.text())
-        unit, value = self._convertUnit(unitCB.unitCB.currentText(),value)
-        txtToDisplay  = 'Axe%d (%d px - %d %s)' % (indexChanged, self.shapeData[indexChanged],value,unit)
-        labelW.setText(txtToDisplay)
+        unitType =  unitCB.unitCB.currentText()
+        unit, value = self._convertUnit(unitType,value)
 
+
+        if (not self.flag_vector_2D and not self.flag_vector_3D) or (
+                (indexChanged != self.pos_axis_v2D) and (indexChanged != self.pos_axis_v3D)):
+            txtToDisplay = f'Axe{indexChanged} ({self.shapeData[indexChanged]} px - {value:.2f} {unit})'
+        elif self.flag_vector_3D:
+            txtToDisplay = f'Axe{indexChanged} (3D Vector Field)'
+        else:
+            txtToDisplay = f'Axe{indexChanged} (2D Vector Field)'
+
+        labelW.setText(txtToDisplay)
+        labelW.setAlignment(qt.Qt.AlignCenter)
+        unitCB.unitCB.setDisabled(False)
 
 class EditableComboBox(qt.QComboBox):
     def __init__(self):
         qt.QComboBox.__init__(self)
         self.currentIndexChanged.connect(self.fix)
         self.setInsertPolicy(qt.QComboBox.InsertAtCurrent)
+        setattr(self, "allItems", lambda: [self.itemText(i) for i in range(self.count())])
 
     def fix(self, index):
         if (self.currentData() == 'Custom'):
@@ -360,19 +462,20 @@ class UnitEditor(qt.QHBoxLayout):
 
     def addItemsCB(self,list):
         self.unitCB.clear()
-        for item in list:
-            self.unitCB.addItem(item,item)
+        self.unitCB.addItems(list)
+        self.unitCB.addItem('px')
 
         self.unitCB.addItem('---','Custom')
-
-
+        a = self.unitCB.allItems()
 
 if __name__ == "__main__":
 
     name = 'Image'
     Path = '\\data\\'
     dtype = type('uint16')
-    shapeImage = (500,500,100)
+    shapeImage = (500,2,300,20)
+
+
 
     app = qt.QApplication(["-display"])
     m =  LoadingDataW(shapeImage=shapeImage,dtypeData=dtype,nameImage=name,pathImage=Path)
