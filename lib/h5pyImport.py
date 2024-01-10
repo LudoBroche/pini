@@ -464,9 +464,14 @@ class HDF5Importer(qt.QMainWindow):
     def handle_add_import(self):
         hdf5widget = self.tabs.currentWidget()
         pathFile = self.recent_files
-        pathData = hdf5widget.export_data()
-        hdf = hdf5widget.hdf
-        self.app.mainWidget.loadHDF5(pathFile, pathData,hdf)
+
+        if hdf5widget != None:
+            pathData = hdf5widget.export_data()
+            hdf = hdf5widget.hdf
+            self.app.mainWidget.loadHDF5(pathFile, pathData,hdf)
+            self.close()
+        else:
+            qt.QMessageBox.information(None, "", "Select a valid Dataset")
 
     def dragEnterEvent(self, event):
         """

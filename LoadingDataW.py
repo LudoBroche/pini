@@ -207,7 +207,7 @@ class LoadingDataW(qt.QMainWindow):
 
         self.mainWidget.setLayout(self.layoutLoadingData)
         self.setCentralWidget(self.mainWidget)
-        self.show()
+
 
     def _convertUnit(self,unitType, value):
 
@@ -377,8 +377,6 @@ class LoadingDataW(qt.QMainWindow):
         indexChanged = int(self.sender().objectName())
         unitCB = self.listUnitCB[indexChanged]
 
-        print(indexTxt)
-
         labelW = self.listWidgetLabels[indexChanged]
 
 
@@ -479,6 +477,7 @@ if __name__ == "__main__":
 
     app = qt.QApplication(["-display"])
     m =  LoadingDataW(shapeImage=shapeImage,dtypeData=dtype,nameImage=name,pathImage=Path)
+    m.show()
     sys.exit(app.exec_())
 
 

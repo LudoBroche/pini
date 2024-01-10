@@ -2,12 +2,15 @@ import importQt as qt
 import pyqtgraph as pg
 import copy
 import psutil
+from pathlib import Path
+
 
 from SliceViualizer import Interactor3D
 from VolumeRenderingGUI import VolumeRenderingGUI
 from ProgressBarWidget import ProgressBar
 from FileFormatArchive import ArchiveHdf5
-from pathlib import Path
+from LoadingDataW import LoadingDataW
+
 
 class MainWidget(qt.QWidget):
     def __init__(self, parent=None):
@@ -358,14 +361,22 @@ class MainWidget(qt.QWidget):
 
         dicPar['name'] = hdf.attrs['file_name'].split('/')[-1].split('.')[0]
         dicPar['path_original_source_file'] = hdf.attrs['file_name']
-        dicPar['path_current_source_file'] = pathFile
+        dicPar['path_current_source_file'] = pathFile[0]
         dicPar['path_data'] = pathData
-
 
         shapeData = hdf[pathData].shape
         typeData = hdf[pathData].dtype
+        print(shapeData,typeData,dicPar['name'],dicPar['path_current_source_file'])
+        self.loader = LoadingDataW(shapeData,typeData,dicPar['name'],dicPar['path_current_source_file'],self)
 
-        print(dicPar,shapeData,typeData)
+        self.loaderloader.validateButton.clicked.connect(self._loadData)
+        self.loaderloader.show()
+
+
+    def _loadData(self):
+        self.archH5[self.formatH5.currentIndex].attrs["name"] = dicPar['name']
+        self.loader.close()
+        print('IN')
 
 
         """

@@ -219,7 +219,10 @@ class HDF5Widget(qt.QWidget):
         self.tabs.setCurrentIndex(index)
         
     def export_data(self):
-        return self.dataset_model.node.name
+        if self.dataset_model.node != None:
+            return self.dataset_model.node.name
+        else:
+            qt.QMessageBox.information(None, "", "Select a valid Dataset")
 
 
 
