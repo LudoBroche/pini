@@ -8,6 +8,7 @@ import glob
 import importQt as qt
 import getpass
 import uuid
+import numpy as np
 from lib import h5pyImport
 
 class AlignDelegate(qt.QStyledItemDelegate):
@@ -377,19 +378,57 @@ class ArchiveHdf5:
 
         self.archH5.create_group(index)
         self.archH5[index].attrs["name"] = h5py.Empty(dt)
+        self.archH5[index].attrs["format"] = h5py.Empty(dt)
         self.archH5[index].attrs["path_original_source_file"] = h5py.Empty(dt)
         self.archH5[index].attrs["path_current_source_file"] = h5py.Empty(dt)
-        self.archH5[index].attrs["path_data"] = h5py.Empty(dt)
-        self.archH5[index].attrs["data_type"] = h5py.Empty(dt)
-        self.archH5[index].create_dataset("pixel_size", dtype="f")
-        self.archH5[index].create_dataset("data", dtype="f")
+        self.archH5[index].attrs["flag_streaming"] = h5py.Empty(np.dtype('?'))
+
+        self.archH5[index].create_dataset("path_data",dtype=dt)
+        self.archH5[index].create_dataset("axes",dtype=dt)
+        self.archH5[index].create_dataset("units",dtype=dt)
+        self.archH5[index].create_dataset("pixel_size",dtype=np.dtype('f'))
+        self.archH5[index].create_dataset("data",dtype=np.dtype('f'))
         self.archH5[index].create_group("roi")
         self.archH5[index].create_group("pipeline")
 
         self._closeArchive()
 
     def populateImage(self,dicPar):
-        pass
+
+        self.openCurrentArchive()
+        index_list = [int(k) for k in list(self.archH5.keys())]
+        index = max(index_list)
+        index = str(index).zfill(5)
+
+        if dicPar['format'] == 'hdf5':
+
+            dt = h5py.special_dtype(vlen=str)
+
+            self.archH5[index].attrs["name"] = dicPar["name"]
+            self.archH5[index].attrs["format"] = dicPar["format"]
+            self.archH5[index].attrs["path_original_source_file"] = dicPar["path_original_source_file"]
+            self.archH5[index].attrs["path_current_source_file"] = dicPar["path_current_source_file"]
+            self.archH5[index].attrs["flag_streaming"] = dicPar["flag_streaming"]
+
+            del self.archH5[index]["path_data"]
+            self.archH5[index].create_dataset("path_data",data = np.array([dicPar["path_data"]],dtype = 'S'))
+            del self.archH5[index]["axes"]
+            self.archH5[index].create_dataset("axes", data=np.array(dicPar["axes"], dtype='S'))
+            del self.archH5[index]["units"]
+            self.archH5[index].create_dataset("units", data=np.array(dicPar["units"], dtype=dt))
+            del self.archH5[index]["pixel_size"]
+            self.archH5[index].create_dataset("pixel_size", data=np.array(dicPar["pixel_size"], dtype=np.dtype('f')))
+
+            del self.archH5[index]["data"]
+
+            vlayout = h5py.VirtualLayout(shape = dicPar['shape_image'],dtype= dicPar['data_type'])
+
+            vsource = h5py.VirtualSource(dicPar["path_current_source_file"],dicPar["path_data"],shape= dicPar['shape_image'])
+            vlayout[...] = vsource
+            self.archH5[index].create_virtual_dataset("data",vlayout,fillvalue=-1)
+
+        self._closeArchive()
+
 
 
 if __name__ == "__main__":

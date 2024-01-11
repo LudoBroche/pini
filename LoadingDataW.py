@@ -1,17 +1,40 @@
 
 import importQt as qt
 import sys
+import numpy as np
+
 class LoadingDataW(qt.QMainWindow):
     def __init__(self,shapeImage,dtypeData, nameImage,pathImage,parent=None ):
         qt.QMainWindow.__init__(self, parent)
 
         self.shapeData = shapeImage
-        self.dtypeData = dtypeData
+        self.dtypeData = np.dtype(dtypeData)
         self.nameImage = nameImage
         self.pathData = pathImage
         self._buildLayout()
 
     def _buildLayout(self):
+
+        size_total = self.dtypeData.itemsize
+        for shapeAx in self.shapeData:
+            size_total *= shapeAx
+
+        listSizes = ['o','Ko','Mo','Go','To']
+
+        unit = 'o'
+
+        for size in listSizes:
+            if (size_total/ 1024) >= 1:
+                size_total /= 1024
+                unit = size
+            else:
+                break
+
+
+        string_size = f"{size_total:.2f} {unit}"
+
+
+
         stringLabel = self.nameImage + ' '*5 + self.pathData
         self.setWindowTitle(stringLabel)
         self.setWindowIcon(qt.QIcon('./Icones/transp.png'))
@@ -24,7 +47,7 @@ class LoadingDataW(qt.QMainWindow):
         nb_vector_3d = self.shapeData.count(3)
 
 
-        infoTxt = "%d axis detected"%nbAxis
+        infoTxt = f"{nbAxis} axis detected - {string_size} [{self.dtypeData}]"
         self.flag_vector_3D = False
         self.flag_vector_2D = False
         self.pos_axis_v2D = -1
@@ -212,7 +235,7 @@ class LoadingDataW(qt.QMainWindow):
     def _convertUnit(self,unitType, value):
 
         distanceList = ['m','mm','μm','nm','pm']
-        angleList = ['°','rad','mrad','μrad']
+        angleList = ['°','180 proj','360 proj','rad','mrad','μrad']
         timeList = ['Days','Hours','min','s','ms','μs','ns','ps','fs']
 
         if unitType in distanceList:
@@ -246,9 +269,13 @@ class LoadingDataW(qt.QMainWindow):
             elif unitType == '°':
                 unitTypeNew = unitType
                 valueNew = value
-            elif unitType == '360/°':
-                unitTypeNew = unitType
-                valueNew = int(value)
+            elif unitType == '360 proj':
+                unitTypeNew = '360 proj'
+                valueNew = value
+
+            elif unitType == '180 proj':
+                unitTypeNew = '180 proj'
+                valueNew = value
 
 
         elif unitType in timeList:
@@ -291,15 +318,15 @@ class LoadingDataW(qt.QMainWindow):
             unitSelect = self.sender().currentText()
             unitLineEdit =  self.listUnitCB[indexChanged].unitValueEdit
 
-            if unitSelect == 'px':
+            if unitSelect == 'px' or unitSelect =='180 proj' or unitSelect == '360 proj':
                 unitLineEdit.setText('1.0')
                 unitLineEdit.setDisabled(True)
+                self.sender().setDisabled(False)
             else:
                 unitLineEdit.setDisabled(False)
             indexTxt = unitLineEdit.text()
 
             unitLineEdit.setText(str(indexTxt))
-
 
             labelW = self.listWidgetLabels[indexChanged]
             try:
@@ -367,7 +394,7 @@ class LoadingDataW(qt.QMainWindow):
         unitCB.setDisabled(False)
 
     def _changeNameImage(self):
-
+        self.nameImage = self.nameEdit.text()
         nameWindow = f'{self.nameEdit.text()}    {self.pathData}'
         self.setWindowTitle(nameWindow)
 
@@ -419,6 +446,27 @@ class LoadingDataW(qt.QMainWindow):
         labelW.setAlignment(qt.Qt.AlignCenter)
         unitCB.unitCB.setDisabled(False)
 
+    def returnAxesInfo(self):
+        list_axis = []
+        for w in self.listWidgetAxis:
+            list_axis.append(w.currentText())
+
+        return list_axis
+
+    def returnUnitsInfo(self):
+        list_units = []
+        for w in self.listUnitCB:
+            list_units.append(w.unitCB.currentText())
+
+        return list_units
+
+    def returnPixelsInfo(self):
+        list_px_size = []
+        for w in self.listUnitCB:
+            list_px_size.append(float(w.unitValueEdit.text()))
+
+        return list_px_size
+
 class EditableComboBox(qt.QComboBox):
     def __init__(self):
         qt.QComboBox.__init__(self)
@@ -444,7 +492,7 @@ class UnitEditor(qt.QHBoxLayout):
         self.addWidget(self.unitCB)
 
         self.distanceList = ['m','mm','μm','nm','pm']
-        self.angleList = ['°','rad','mrad','μrad']
+        self.angleList = ['°','180 proj','360 proj','rad','mrad','μrad']
         self.timeList = ['Days','Hours','min','s','ms','μs','ns','ps','fs']
 
 
@@ -470,8 +518,8 @@ if __name__ == "__main__":
 
     name = 'Image'
     Path = '\\data\\'
-    dtype = type('uint16')
-    shapeImage = (500,2,300,20)
+    dtype = 'uint16'
+    shapeImage = (500,1000)
 
 
 

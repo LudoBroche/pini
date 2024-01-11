@@ -2,8 +2,6 @@ import importQt as qt
 import pyqtgraph as pg
 import copy
 import psutil
-from pathlib import Path
-
 
 from SliceViualizer import Interactor3D
 from VolumeRenderingGUI import VolumeRenderingGUI
@@ -349,34 +347,37 @@ class MainWidget(qt.QWidget):
             self.volumeRenderingGUI.ItemLists = self.Items_list
 
     def loadHDF5(self,pathFile,pathData,hdf):
-        #self.imageSelection
 
-        nameImage = Path(pathFile[0]).name
-        self.parent.startUpArchive.arch.openCurrentArchive()
-        self.formatH5 = self.parent.startUpArchive.arch
+        self.dicPar = {}
+        self.dicPar['name'] = hdf.attrs['file_name'].split('/')[-1].split('.')[0]
+        self.dicPar['format'] = 'hdf5'
+        self.dicPar['path_original_source_file'] = hdf.attrs['file_name']
+        self.dicPar['path_current_source_file'] = pathFile[0]
+        self.dicPar['path_data'] = pathData
+        self.dicPar['flag_streaming'] = True
+        self.dicPar['shape_image'] = hdf[pathData].shape
+        self.dicPar['data_type'] = hdf[pathData].dtype
 
-        self.archH5 = self.formatH5.archH5
-        self.formatH5.createEmptyImage()
-        dicPar = {}
-
-        dicPar['name'] = hdf.attrs['file_name'].split('/')[-1].split('.')[0]
-        dicPar['path_original_source_file'] = hdf.attrs['file_name']
-        dicPar['path_current_source_file'] = pathFile[0]
-        dicPar['path_data'] = pathData
-
-        shapeData = hdf[pathData].shape
-        typeData = hdf[pathData].dtype
-        print(shapeData,typeData,dicPar['name'],dicPar['path_current_source_file'])
-        self.loader = LoadingDataW(shapeData,typeData,dicPar['name'],dicPar['path_current_source_file'],self)
-
-        self.loaderloader.validateButton.clicked.connect(self._loadData)
-        self.loaderloader.show()
+        self.loader = LoadingDataW(self.dicPar['shape_image'],self.dicPar['data_type'],self.dicPar['name'],self.dicPar['path_current_source_file'],self)
+        self.loader.validateButton.clicked.connect(self._loadData)
+        self.loader.show()
 
 
     def _loadData(self):
-        self.archH5[self.formatH5.currentIndex].attrs["name"] = dicPar['name']
+
+        self.dicPar['name'] = self.loader.nameImage
+        self.dicPar['axes'] = self.loader.returnAxesInfo()
+        self.dicPar['units'] = self.loader.returnUnitsInfo()
+        self.dicPar['pixel_size'] = self.loader.returnPixelsInfo()
+
+        self.parent.startUpArchive.arch.openCurrentArchive()
+        self.formatH5 = self.parent.startUpArchive.arch
+        self.archH5 = self.formatH5.archH5
+        self.formatH5.createEmptyImage()
+        self.formatH5.populateImage(self.dicPar)
+
+
         self.loader.close()
-        print('IN')
 
 
         """
