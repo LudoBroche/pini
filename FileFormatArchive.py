@@ -239,7 +239,7 @@ class StartUpArchive(qt.QMainWindow):
 
 
     def _check4Archive(self):
-        self.list_h5_archive = glob.glob(str(self.pathFolderArchive) + '/*.h5')
+        self.list_h5_archive = glob.glob(str(self.pathFolderArchive) + '/pini*.h5')
         self.list_h5_archive = self.list_h5_archive[::-1]
 
     def _newArchive(self):

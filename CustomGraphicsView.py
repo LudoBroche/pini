@@ -19,7 +19,6 @@ class CustomGraphicsView(qt.QGraphicsView):
         self.zoomScale = 1
         self.FlagWheellEvent = True
 
-
     def mousePressEvent(self, event):
 
         ddict = {}

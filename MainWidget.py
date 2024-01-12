@@ -1,7 +1,10 @@
+import os.path
+
 import importQt as qt
 import pyqtgraph as pg
 import copy
 import psutil
+import fabio
 
 from SliceViualizer import Interactor3D
 from VolumeRenderingGUI import VolumeRenderingGUI
@@ -346,6 +349,44 @@ class MainWidget(qt.QWidget):
             self.volumeRenderingGUI.DataList = self.Data_list
             self.volumeRenderingGUI.ItemLists = self.Items_list
 
+    def loadImageSequence(self,filenames):
+
+        imageSamplePath = filenames[0]
+        path_folder = imageSamplePath.split('/')
+        tiff_file = fabio.open(imageSamplePath)
+
+        self.dicPar = {}
+        self.dicPar['name'] = os.path.basename(filenames[0])
+        self.dicPar['format'] = 'tiff'
+        self.dicPar['path_original_source_file'] = os.path.dirname(filenames[0])
+        self.dicPar['path_current_source_file'] = os.path.dirname(filenames[0])
+        self.dicPar['path_data'] = filenames
+        self.dicPar['flag_streaming'] = True
+        if len(filenames) > 1:
+            self.dicPar['shape_image'] = (tiff_file.shape[0],tiff_file.shape[1],len(filenames))
+        elif len(filenames) == 1:
+            self.dicPar['shape_image'] = (tiff_file.shape[0], tiff_file.shape[1])
+        else:
+            msg = qt.QMessageBox()
+            msg.setIcon(qt.QMessageBox.Critical)
+            msg.setText("Error")
+            msg.setInformativeText('No File selected')
+            msg.setWindowTitle("Error")
+            msg.exec_()
+            return 0
+
+
+        self.dicPar['data_type'] = tiff_file.dtype
+        tiff_file.close()
+
+        self.loader = LoadingDataW(self.dicPar['shape_image'], self.dicPar['data_type'], self.dicPar['name'],
+                                   self.dicPar['path_current_source_file'], self)
+        self.loader.validateButton.clicked.connect(self._loadData)
+        self.loader.show()
+
+
+
+
     def loadHDF5(self,pathFile,pathData,hdf):
 
         self.dicPar = {}
@@ -375,8 +416,6 @@ class MainWidget(qt.QWidget):
         self.archH5 = self.formatH5.archH5
         self.formatH5.createEmptyImage()
         self.formatH5.populateImage(self.dicPar)
-
-
         self.loader.close()
 
 

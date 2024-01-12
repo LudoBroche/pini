@@ -41,7 +41,7 @@ class MainWindow(qt.QMainWindow) :
 
         # Import Data
         import_tiff = qt.QAction('Images &Sequence', self)
-        #import_tiff.triggered.connect(self.mainWidget._importTiff)
+        import_tiff.triggered.connect(self._importSequenceImages)
         import_menu.addAction(import_tiff)
 
         import_h5 = qt.QAction('&HDF5', self)
@@ -63,6 +63,21 @@ class MainWindow(qt.QMainWindow) :
 
     def _launchProjectWin(self):
         self.startUpArchive._buildArchiveWidget()
+
+    def _importSequenceImages(self):
+        dialog = qt.QFileDialog()
+        dialog.setWindowIcon(qt.QIcon('./Icones/transp.png'))
+        dialog.setNameFilter("Images (*.tiff *.tif)")
+        dialog.setViewMode(qt.QFileDialog.Detail)
+        dialog.setFileMode(qt.QFileDialog.FileMode.ExistingFiles)
+        dialog.setDirectory("")
+        if dialog.exec():
+            filenames = dialog.selectedFiles()
+            self.mainWidget.loadImageSequence(filenames)
+
+
+
+
 
     def _importHDF5(self):
         self.h5Import.show()
