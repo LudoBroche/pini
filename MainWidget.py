@@ -12,6 +12,10 @@ from ProgressBarWidget import ProgressBar
 from FileFormatArchive import ArchiveHdf5
 from LoadingDataW import LoadingDataW
 
+class AlignDelegate(qt.QStyledItemDelegate):
+    def initStyleOption(self, option, index):
+        super(AlignDelegate, self).initStyleOption(option, index)
+        option.displayAlignment = qt.Qt.AlignCenter
 
 class MainWidget(qt.QWidget):
     def __init__(self, parent=None):
@@ -19,7 +23,6 @@ class MainWidget(qt.QWidget):
 
         """ Attributs """
 
-        self.arch = ArchiveHdf5()
         self.parent = parent
         self.Data_list = []
         self.Items_list = []
@@ -41,8 +44,9 @@ class MainWidget(qt.QWidget):
         self.layoutViewPlanes = qt.QGridLayout()
         self.buttonLayout = qt.QVBoxLayout()
         self.image3DWidget = Interactor3D(self)
-        self.imageSelection = qt.QListWidget(self)
-        self.imageSelection.setContextMenuPolicy(qt.Qt.CustomContextMenu)
+
+        self._imageSelectionBuildTable()
+
         self.progressBar = ProgressBar(self)
 
         self.systemInfo1 = qt.QLabel()
@@ -69,8 +73,8 @@ class MainWidget(qt.QWidget):
 
         self.timer.timeout.connect(self._updatePcInfo)
 
-        self.imageSelection.customContextMenuRequested.connect(self._listItemRightClicked)
-        self.imageSelection.currentRowChanged.connect(self._dataToShowChanged)
+        #self.imageSelection.customContextMenuRequested.connect(self._listItemRightClicked)
+        #self.imageSelection.currentRowChanged.connect(self._dataToShowChanged)
 
         self.image3DWidget.axialWidget.MovedOnVizualizer.connect(self._moved)
         self.image3DWidget.coronalWidget.MovedOnVizualizer.connect(self._moved)
@@ -108,24 +112,71 @@ class MainWidget(qt.QWidget):
         self.mainLayout.addWidget(self.tabWidget)
         self.setLayout(self.mainLayout)
 
+
+    def _imageSelectionBuildTable(self):
+        self.imageSelectionWList = []
+
+        icon_hdd = qt.QIcon('./Icones/hdd.png')
+        icon_item_hdd = qt.QTableWidgetItem()
+        icon_item_hdd.setIcon(icon_hdd)
+
+        icon_ram = qt.QIcon('./Icones/ram.png')
+        icon_item_ram = qt.QTableWidgetItem()
+        icon_item_ram.setIcon(icon_ram)
+
+        icon_trash = qt.QIcon('./Icones/trash.png')
+        icon_item_trash = qt.QTableWidgetItem()
+        icon_item_trash.setIcon(icon_trash)
+
+        self.imageSelection = qt.QTableWidget(self)
+        delegate = AlignDelegate(self.imageSelection)
+        self.imageSelection.setItemDelegate(delegate)
+        self.imageSelection.setRowCount(0)
+        self.imageSelection.setColumnCount(4)
+        self.imageSelection.resizeColumnsToContents()
+        self.imageSelection.setHorizontalHeaderItem(0,qt.QTableWidgetItem('Name'))
+        self.imageSelection.setHorizontalHeaderItem(1, icon_item_hdd)
+        self.imageSelection.setHorizontalHeaderItem(2, icon_item_ram)
+        self.imageSelection.setHorizontalHeaderItem(3, icon_item_trash)
+        self.imageSelection.setShowGrid(False)
+
+        self.imageSelection.horizontalHeader().setResizeMode(0, qt.QHeaderView.Stretch)
+        self.imageSelection.horizontalHeader().setResizeMode(1, qt.QHeaderView.ResizeToContents)
+        self.imageSelection.horizontalHeader().setResizeMode(2, qt.QHeaderView.ResizeToContents)
+        self.imageSelection.horizontalHeader().setResizeMode(3, qt.QHeaderView.ResizeToContents)
+
+
+    def _imageSelectionAddImage(self):
+
+        self.formatH5.openCurrentArchive()
+
+        for key in  list(self.formatH5.archH5.keys()):
+            if self.formatH5.archH5[f'{key}/data'].shape != None:
+
+            #size_image = self.archH5[key]['data'].size
+            #print(size_image)
+
+
+
+
     def _updatePcInfo(self):
 
             path = self.parent.setting.parameter['pini_parameters']['home_collection']['path']
             hdd = psutil.disk_usage(str(path))
 
             if (hdd.total // (2 ** 30)) > 1000:
-                string_space = 'HDD: {}/{} TiB [{} %]'.format(hdd.used//(2 ** 30 * 1000), hdd.total // (2 ** 30 * 1000),hdd.percent)
+                string_space = f'HDD: {hdd.used//(2 ** 30 * 1000)}/{ hdd.total // (2 ** 30 * 1000)} TiB [{hdd.percent} %]'
 
             else:
-                string_space = 'HDD: {}/{} GiB ( {} % )'.format(hdd.used//2 ** 30, hdd.total // 2 ** 30,hdd.percent)
+                string_space = f'HDD: {hdd.used//2 ** 30}/{hdd.total // 2 ** 30} GiB ( {hdd.percent} % )'
 
             mem = psutil.virtual_memory()
             cpu = psutil.cpu_percent()
 
             if (mem.total // (2**30)) > 1000:
-                string_mem = 'CPU: {} % | RAM: {}/{} TiB [{} %]'.format(cpu,mem.used//(2 ** 30 * 1000), mem.total // (2 ** 30 * 1000),mem.percent)
+                string_mem = f'CPU: {cpu} % | RAM: {mem.used//(2 ** 30 * 1000)}/{mem.total // (2 ** 30 * 1000)} TiB [{mem.percent} %]'
             else:
-                string_mem = 'CPU: {} % | RAM: {}/{} GiB [{} %]'.format(cpu,mem.used // (2 ** 30),mem.total // (2 ** 30), mem.percent)
+                string_mem = f'CPU: {cpu} % | RAM: {mem.used // (2 ** 30)}/{mem.total // (2 ** 30)} GiB [{mem.percent} %]'
 
             self.systemInfo1.setText(string_space)
             self.systemInfo2.setText(string_mem)
@@ -351,8 +402,8 @@ class MainWidget(qt.QWidget):
 
     def loadImageSequence(self,filenames):
 
+        filenames.sort()
         imageSamplePath = filenames[0]
-        path_folder = imageSamplePath.split('/')
         tiff_file = fabio.open(imageSamplePath)
 
         self.dicPar = {}
@@ -360,6 +411,7 @@ class MainWidget(qt.QWidget):
         self.dicPar['format'] = 'tiff'
         self.dicPar['path_original_source_file'] = os.path.dirname(filenames[0])
         self.dicPar['path_current_source_file'] = os.path.dirname(filenames[0])
+
         self.dicPar['path_data'] = filenames
         self.dicPar['flag_streaming'] = True
         if len(filenames) > 1:
@@ -390,11 +442,11 @@ class MainWidget(qt.QWidget):
     def loadHDF5(self,pathFile,pathData,hdf):
 
         self.dicPar = {}
-        self.dicPar['name'] = hdf.attrs['file_name'].split('/')[-1].split('.')[0]
+        self.dicPar['name'] = os.path.basename(hdf.attrs['file_name'])
         self.dicPar['format'] = 'hdf5'
         self.dicPar['path_original_source_file'] = hdf.attrs['file_name']
         self.dicPar['path_current_source_file'] = pathFile[0]
-        self.dicPar['path_data'] = pathData
+        self.dicPar['path_data'] = [pathData]
         self.dicPar['flag_streaming'] = True
         self.dicPar['shape_image'] = hdf[pathData].shape
         self.dicPar['data_type'] = hdf[pathData].dtype
@@ -411,26 +463,14 @@ class MainWidget(qt.QWidget):
         self.dicPar['units'] = self.loader.returnUnitsInfo()
         self.dicPar['pixel_size'] = self.loader.returnPixelsInfo()
 
+
         self.parent.startUpArchive.arch.openCurrentArchive()
         self.formatH5 = self.parent.startUpArchive.arch
         self.archH5 = self.formatH5.archH5
         self.formatH5.createEmptyImage()
         self.formatH5.populateImage(self.dicPar)
+        self._imageSelectionAddImage()
         self.loader.close()
-
-
-        """
-        self.archH5[self.formatH5.currentIndex].attrs["name"] = dicPar['name']
-        self.archH5[self.formatH5.currentIndex].attrs["path_source_file"] = dicPar['path_source_file']
-        self.archH5[self.formatH5.currentIndex].attrs["path_data"] = dicPar['path_data']
-
-        #self.archH5.populateImage(dicPar)
-        print(pathFile, pathData,hdf)
-        """
-
-
-
-
 
 
 

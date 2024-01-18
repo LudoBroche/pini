@@ -22,6 +22,7 @@ class MainWindow(qt.QMainWindow) :
         self._buildMenu()
         self.startUpArchive = StartUpArchive(self)
 
+
     def _buildMenu(self):
         """
         Builder for the menus bar
@@ -74,10 +75,6 @@ class MainWindow(qt.QMainWindow) :
         if dialog.exec():
             filenames = dialog.selectedFiles()
             self.mainWidget.loadImageSequence(filenames)
-
-
-
-
 
     def _importHDF5(self):
         self.h5Import.show()

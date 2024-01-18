@@ -9,6 +9,7 @@ import importQt as qt
 import getpass
 import uuid
 import numpy as np
+from tifffile import TiffFile
 from lib import h5pyImport
 
 class AlignDelegate(qt.QStyledItemDelegate):
@@ -57,9 +58,11 @@ class StartUpArchive(qt.QMainWindow):
                     self._buildArchiveWidget()
                 else:
                     self.arch = ArchiveHdf5()
+                    self.arch.clean_up_lock_file()
                     self.arch.createNewArchive()
             else:
                 self.arch = ArchiveHdf5()
+                self.arch.clean_up_lock_file()
                 self.arch.createNewArchive()
         else:
             qmError = qt.QMessageBox()
@@ -244,6 +247,7 @@ class StartUpArchive(qt.QMainWindow):
 
     def _newArchive(self):
         self.arch = ArchiveHdf5()
+        self.arch.clean_up_lock_file()
         self.arch.createNewArchive()
         self._check4Archive()
         self._buildArchiveWidget()
@@ -258,6 +262,7 @@ class StartUpArchive(qt.QMainWindow):
 
 
         self.arch = ArchiveHdf5()
+        self.arch.clean_up_lock_file()
         self.arch.openArchive(path_to_open)
 
         current_vers_hdf5pini = self.parameter['pini_parameters']['home_collection']['hdf5_pini_version']
@@ -281,7 +286,7 @@ class StartUpArchive(qt.QMainWindow):
             if returnValue == qt.QMessageBox.Yes:
                 self.close()
             else:
-                self.arch.archH5.close()
+                self.arch._closeArchive()
         else:
             self.close()
 
@@ -297,6 +302,7 @@ class StartUpArchive(qt.QMainWindow):
     def closeEvent(self,event):
         if self.arch == None:
             self.arch = ArchiveHdf5()
+            self.arch.clean_up_lock_file()
             self.arch.createNewArchive()
             name = Path(self.arch.pathArchive).name
 
@@ -343,18 +349,38 @@ class ArchiveHdf5:
         self.archH5.attrs["creation_date"] = str(dateTime)
         self.archH5.attrs["modification_date"] = str(dateTime)
         self.archH5.attrs["code"] = str(uuid.uuid4())
-        self.archH5.close()
+        self._closeArchive()
+
+    def generate_lock_file(self):
+        print('')
+        lock_file = os.path.splitext(self.pathArchive)[0]+'.lock'
+        f = open(lock_file,'w')
+        f.close()
+
+    def remove_lock_file(self):
+        lock_file = os.path.splitext(self.pathArchive)[0]+'.lock'
+        if os.path.exists(lock_file):
+            os.remove(lock_file)
+
+    def clean_up_lock_file(self):
+        list_lock = glob.glob(str(self.pathFolderArchive) + '/*.lock')
+        for lock in list_lock:
+            os.remove(lock)
+
 
 
     def openArchive(self,archivePath):
         self.pathArchive = Path(archivePath)
         self.archH5 = h5py.File(self.pathArchive,'a')
+        self.generate_lock_file()
 
     def openCurrentArchive(self):
         self.archH5 = h5py.File(self.pathArchive,'a')
+        self.generate_lock_file()
 
     def _closeArchive(self):
         self.archH5.close()
+        self.remove_lock_file()
 
     def cleanUpAllArchive(self):
         if self.archH5 != None:
@@ -395,41 +421,66 @@ class ArchiveHdf5:
 
     def populateImage(self,dicPar):
 
+        dt = h5py.special_dtype(vlen=str)
+
         self.openCurrentArchive()
         index_list = [int(k) for k in list(self.archH5.keys())]
-        index = max(index_list)
-        index = str(index).zfill(5)
+        indexh5 = max(index_list)
+        indexh5 = str(indexh5).zfill(5)
+
+        self.archH5[indexh5].attrs["name"] = dicPar["name"]
+        self.archH5[indexh5].attrs["format"] = dicPar["format"]
+        self.archH5[indexh5].attrs["path_original_source_file"] = dicPar["path_original_source_file"]
+        self.archH5[indexh5].attrs["path_current_source_file"] = dicPar["path_current_source_file"]
+        self.archH5[indexh5].attrs["flag_streaming"] = dicPar["flag_streaming"]
+        del self.archH5[indexh5]["axes"]
+        self.archH5[indexh5].create_dataset("axes", data=np.array(dicPar["axes"], dtype='S'))
+        del self.archH5[indexh5]["units"]
+        self.archH5[indexh5].create_dataset("units", data=np.array(dicPar["units"], dtype=dt))
+        del self.archH5[indexh5]["path_data"]
+        self.archH5[indexh5].create_dataset("path_data", data=np.array(dicPar["path_data"], dtype='S'))
+        del self.archH5[indexh5]["pixel_size"]
+        self.archH5[indexh5].create_dataset("pixel_size", data=np.array(dicPar["pixel_size"], dtype=np.dtype('f')))
 
         if dicPar['format'] == 'hdf5':
 
-            dt = h5py.special_dtype(vlen=str)
-
-            self.archH5[index].attrs["name"] = dicPar["name"]
-            self.archH5[index].attrs["format"] = dicPar["format"]
-            self.archH5[index].attrs["path_original_source_file"] = dicPar["path_original_source_file"]
-            self.archH5[index].attrs["path_current_source_file"] = dicPar["path_current_source_file"]
-            self.archH5[index].attrs["flag_streaming"] = dicPar["flag_streaming"]
-
-            del self.archH5[index]["path_data"]
-            self.archH5[index].create_dataset("path_data",data = np.array([dicPar["path_data"]],dtype = 'S'))
-            del self.archH5[index]["axes"]
-            self.archH5[index].create_dataset("axes", data=np.array(dicPar["axes"], dtype='S'))
-            del self.archH5[index]["units"]
-            self.archH5[index].create_dataset("units", data=np.array(dicPar["units"], dtype=dt))
-            del self.archH5[index]["pixel_size"]
-            self.archH5[index].create_dataset("pixel_size", data=np.array(dicPar["pixel_size"], dtype=np.dtype('f')))
-
-            del self.archH5[index]["data"]
-
+            del self.archH5[indexh5]["data"]
             vlayout = h5py.VirtualLayout(shape = dicPar['shape_image'],dtype= dicPar['data_type'])
-
-            vsource = h5py.VirtualSource(dicPar["path_current_source_file"],dicPar["path_data"],shape= dicPar['shape_image'])
+            vsource = h5py.VirtualSource(dicPar["path_current_source_file"],dicPar["path_data"][0],shape= dicPar['shape_image'])
             vlayout[...] = vsource
-            self.archH5[index].create_virtual_dataset("data",vlayout,fillvalue=-1)
+            self.archH5[indexh5].create_virtual_dataset("data",vlayout,fillvalue=-1)
 
-        self._closeArchive()
+        elif dicPar['format'] == 'tiff':
+            external_datasets = []
+            if not 'tiff_links' in list(self.archH5.keys()):
+                self.archH5[indexh5].create_group('tiff_links')
+            dtype = None
+            for i,pathTiff in enumerate(self.archH5[indexh5]["path_data"]):
+                pathTiff = pathTiff.decode('ascii')
 
+                with TiffFile(pathTiff) as tif:
+                    fh = tif.filehandle
+                    for page in tif.pages:
+                        if dtype is not None:
+                            assert dtype == page.dtype, "incoherent data type"
+                        dtype = page.dtype
+                        for index, (offset, bytecount) in enumerate(zip(page.dataoffsets, page.databytecounts)):
+                            _ = fh.seek(offset)
+                            data = fh.read(bytecount)
+                            _, _, shape = page.decode(data, index, jpegtables=page.jpegtables)
+                            shape = shape[1:-1]
+                            external_dataset = self.archH5[indexh5]['tiff_links'].create_dataset(name=f'tmp{i}', shape=shape, dtype=dtype,
+                                                                 external=[(pathTiff, offset, bytecount)])
+                            external_datasets.append(external_dataset)
 
+            vlayout = h5py.VirtualLayout(shape=(len(self.archH5[indexh5]["path_data"]), shape[0], shape[1]), dtype=dtype)
+            for i, ed in enumerate(external_datasets):
+                vsource = h5py.VirtualSource(ed)
+                vlayout[i] = vsource
+
+            del self.archH5[indexh5]["data"]
+            self.archH5[indexh5].create_virtual_dataset("data", vlayout, fillvalue=-1)
+            self.archH5.close()
 
 if __name__ == "__main__":
 

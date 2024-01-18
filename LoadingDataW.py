@@ -19,8 +19,6 @@ class LoadingDataW(qt.QMainWindow):
         for shapeAx in self.shapeData:
             size_total *= shapeAx
 
-        print(self.dtypeData.itemsize,size_total)
-
         listSizes = ['Ko','Mo','Go','To']
 
         unit = 'o'
