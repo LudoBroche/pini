@@ -10,7 +10,7 @@ import getpass
 import uuid
 import numpy as np
 from tifffile import TiffFile
-from lib import h5pyImport
+import contextlib
 
 class AlignDelegate(qt.QStyledItemDelegate):
     def initStyleOption(self, option, index):
@@ -135,18 +135,20 @@ class StartUpArchive(qt.QMainWindow):
 
 
         for i, arch in enumerate(self.list_h5_archive):
-            h5 = h5py.File(arch,'r')
-            if self.arch != None:
-                if str(self.arch.pathArchive)==str(arch):
-                    flag_current_archive = True
-                else:
-                    flag_current_archive = False
 
-            self.tableArchive.setItem(i + 1, 0, qt.QTableWidgetItem(h5.attrs['project_name']))
-            self.tableArchive.setItem(i + 1, 1, qt.QTableWidgetItem(h5.attrs['user']))
-            self.tableArchive.setItem(i + 1, 2, qt.QTableWidgetItem(h5.attrs['creation_date'].split('.')[0]))
-            self.tableArchive.setItem(i + 1, 3, qt.QTableWidgetItem(h5.attrs['modification_date'].split('.')[0]))
-            self.tableArchive.setItem(i + 1, 4, qt.QTableWidgetItem(str(len(list(h5.keys())))))
+
+            with  h5py.File(arch,'r') as h5:
+                if self.arch != None:
+                    if str(self.arch.pathArchive)==str(arch):
+                        flag_current_archive = True
+                    else:
+                        flag_current_archive = False
+
+                self.tableArchive.setItem(i + 1, 0, qt.QTableWidgetItem(h5.attrs['project_name']))
+                self.tableArchive.setItem(i + 1, 1, qt.QTableWidgetItem(h5.attrs['user']))
+                self.tableArchive.setItem(i + 1, 2, qt.QTableWidgetItem(h5.attrs['creation_date'].split('.')[0]))
+                self.tableArchive.setItem(i + 1, 3, qt.QTableWidgetItem(h5.attrs['modification_date'].split('.')[0]))
+                self.tableArchive.setItem(i + 1, 4, qt.QTableWidgetItem(str(len(list(h5.keys())))))
 
             cBImp = qt.QCheckBox()
             cBImp.setStyleSheet("margin-left:20%; margin-right:20%;")
@@ -175,7 +177,7 @@ class StartUpArchive(qt.QMainWindow):
             cBImp.stateChanged.connect(self._selectImportChange)
             cBDelete.setObjectName(str(i))
             cBDelete.stateChanged.connect(self._selectDeleteChange)
-            h5.close()
+
 
 
         if len(self.list_h5_archive) == 1:
@@ -189,8 +191,6 @@ class StartUpArchive(qt.QMainWindow):
         self.show()
 
     def _selectDeleteChange(self):
-
-
         if self.sender().isChecked():
             idImport = self.sender().objectName()
             boxImport = self.list_item_load[int(idImport)]
@@ -290,6 +290,8 @@ class StartUpArchive(qt.QMainWindow):
         else:
             self.close()
 
+        self.parent.mainWidget._imageSelectionUpdateImage()
+
 
     def _deleteArchive(self):
 
@@ -379,6 +381,7 @@ class ArchiveHdf5:
         self.generate_lock_file()
 
     def _closeArchive(self):
+        self.archH5.flush()
         self.archH5.close()
         self.remove_lock_file()
 
@@ -405,9 +408,11 @@ class ArchiveHdf5:
         self.archH5.create_group(index)
         self.archH5[index].attrs["name"] = h5py.Empty(dt)
         self.archH5[index].attrs["format"] = h5py.Empty(dt)
+        self.archH5[index].attrs["type"] = h5py.Empty(dt)
         self.archH5[index].attrs["path_original_source_file"] = h5py.Empty(dt)
         self.archH5[index].attrs["path_current_source_file"] = h5py.Empty(dt)
         self.archH5[index].attrs["flag_streaming"] = h5py.Empty(np.dtype('?'))
+        self.archH5[index].attrs["local"] = h5py.Empty(np.dtype('?'))
 
         self.archH5[index].create_dataset("path_data",dtype=dt)
         self.archH5[index].create_dataset("axes",dtype=dt)
@@ -418,6 +423,58 @@ class ArchiveHdf5:
         self.archH5[index].create_group("pipeline")
 
         self._closeArchive()
+
+    def generateInfotxt(self,indexh5):
+        self.openCurrentArchive()
+        txt = ''
+
+        name = self.archH5[indexh5].attrs["name"]
+        format = self.archH5[indexh5].attrs["format"]
+        dtype =  self.archH5[f'{indexh5}/data'].dtype
+        txt += f'{name} [{format} - {dtype}]\n'
+
+        shape = self.archH5[f'{indexh5}/data'].shape[:]
+
+        px_sizes = self.archH5[f'{indexh5}/pixel_size'][:]
+        txtUnit = ''
+        for i,px_size in enumerate(px_sizes):
+            unit = self.archH5[f'{indexh5}/units'][i].decode('utf-8 ')
+            txtUnit += f'{px_size} {unit} '
+
+        txt += f'{shape} [ {txtUnit}]\n'
+        axes = self.archH5[f'{indexh5}/axes'][:]
+        txtAxes = ''
+        for axe in axes:
+            txtAxes += f'{axe.decode("utf-8")} '
+
+        txt += f'{txtAxes}\n'
+
+        path = self.archH5[indexh5].attrs["path_current_source_file"]
+        txt += path
+
+        return txt
+
+    def deleteImage(self,indexDelete):
+        self.openCurrentArchive()
+        indexh5 = str(indexDelete).zfill(5)
+        if self.archH5[f'{indexh5}'].attrs['local']:
+            #del self.archH5[f'{indexh5}']
+            # Todo delete_H5 in local folder
+            pass
+        with h5py.File('./tmp.h5','w') as newh5:
+
+            i = 0
+            for key in list(self.archH5.keys()):
+                print(key,indexh5,str(i).zfill(5))
+                if key != indexh5:
+                    self.archH5.copy(self.archH5[key],newh5,str(i).zfill(5))
+                    i += 1
+        self._closeArchive()
+        self._updateTmp()
+
+    def _updateTmp(self):
+        os.remove(self.pathArchive)
+        os.rename('./tmp.h5',self.pathArchive)
 
     def populateImage(self,dicPar):
 
@@ -433,6 +490,7 @@ class ArchiveHdf5:
         self.archH5[indexh5].attrs["path_original_source_file"] = dicPar["path_original_source_file"]
         self.archH5[indexh5].attrs["path_current_source_file"] = dicPar["path_current_source_file"]
         self.archH5[indexh5].attrs["flag_streaming"] = dicPar["flag_streaming"]
+        self.archH5[indexh5].attrs["local"] = dicPar["local"]
         del self.archH5[indexh5]["axes"]
         self.archH5[indexh5].create_dataset("axes", data=np.array(dicPar["axes"], dtype='S'))
         del self.archH5[indexh5]["units"]

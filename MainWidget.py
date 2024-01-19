@@ -17,6 +17,14 @@ class AlignDelegate(qt.QStyledItemDelegate):
         super(AlignDelegate, self).initStyleOption(option, index)
         option.displayAlignment = qt.Qt.AlignCenter
 
+class IconDelegate(qt.QStyledItemDelegate):
+    def initStyleOption(self, option, index):
+        super(IconDelegate, self).initStyleOption(option, index)
+        if option.features & qt.QStyleOptionViewItem.HasDecoration:
+            s = option.decorationSize
+            s.setWidth(option.rect.width())
+            option.decorationSize = s
+
 class MainWidget(qt.QWidget):
     def __init__(self, parent=None):
         qt.QWidget.__init__(self, parent)
@@ -28,7 +36,7 @@ class MainWidget(qt.QWidget):
         self.Items_list = []
         self.Name_list = []
 
-        """Data Dictionary"""
+
 
         """ Widgets Initialisation """
 
@@ -114,47 +122,84 @@ class MainWidget(qt.QWidget):
 
 
     def _imageSelectionBuildTable(self):
-        self.imageSelectionWList = []
 
-        icon_hdd = qt.QIcon('./Icones/hdd.png')
-        icon_item_hdd = qt.QTableWidgetItem()
-        icon_item_hdd.setIcon(icon_hdd)
-
-        icon_ram = qt.QIcon('./Icones/ram.png')
-        icon_item_ram = qt.QTableWidgetItem()
-        icon_item_ram.setIcon(icon_ram)
-
-        icon_trash = qt.QIcon('./Icones/trash.png')
-        icon_item_trash = qt.QTableWidgetItem()
-        icon_item_trash.setIcon(icon_trash)
 
         self.imageSelection = qt.QTableWidget(self)
-        delegate = AlignDelegate(self.imageSelection)
-        self.imageSelection.setItemDelegate(delegate)
+
         self.imageSelection.setRowCount(0)
-        self.imageSelection.setColumnCount(4)
-        self.imageSelection.resizeColumnsToContents()
-        self.imageSelection.setHorizontalHeaderItem(0,qt.QTableWidgetItem('Name'))
-        self.imageSelection.setHorizontalHeaderItem(1, icon_item_hdd)
-        self.imageSelection.setHorizontalHeaderItem(2, icon_item_ram)
-        self.imageSelection.setHorizontalHeaderItem(3, icon_item_trash)
+        self.imageSelection.setColumnCount(3)
         self.imageSelection.setShowGrid(False)
+        self.imageSelection.horizontalHeader().hide()
 
-        self.imageSelection.horizontalHeader().setResizeMode(0, qt.QHeaderView.Stretch)
-        self.imageSelection.horizontalHeader().setResizeMode(1, qt.QHeaderView.ResizeToContents)
-        self.imageSelection.horizontalHeader().setResizeMode(2, qt.QHeaderView.ResizeToContents)
-        self.imageSelection.horizontalHeader().setResizeMode(3, qt.QHeaderView.ResizeToContents)
+        #self.imageSelection.horizontalHeader().setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
+        #self.imageSelection.setColumnWidth(1, 0)
+        #self.imageSelection.horizontalHeader().setDefaultAlignment(qt.Qt.AlignCenter)
 
 
-    def _imageSelectionAddImage(self):
-
+    def _imageSelectionUpdateImage(self):
+        self.parent.startUpArchive.arch.openCurrentArchive()
+        self.formatH5 = self.parent.startUpArchive.arch
         self.formatH5.openCurrentArchive()
 
-        for key in  list(self.formatH5.archH5.keys()):
-            if self.formatH5.archH5[f'{key}/data'].shape != None:
 
-            #size_image = self.archH5[key]['data'].size
-            #print(size_image)
+        currentRowCount = self.imageSelection.rowCount()
+
+        while len(list(self.formatH5.archH5.keys())) < currentRowCount:
+            self.imageSelection.removeRow(0)
+            currentRowCount = self.imageSelection.rowCount()
+
+
+        for i, key in  enumerate(list(self.formatH5.archH5.keys())):
+            if i >= currentRowCount:
+                self.imageSelection.insertRow(i)
+
+
+            wRamHdd = qt.QPushButton()
+            wRamHdd.setIcon(qt.QIcon('./Icones/hdd.png'))
+            wRamHdd.setFlat(True)
+            wRamHdd.setCheckable(True)
+            wRamHdd.setStyleSheet("QPushButton: flat;border: none")
+            wRamHdd.setObjectName(f'{i}')
+
+
+            deleteButton = qt.QPushButton()
+            deleteButton.setIcon(qt.QIcon('./Icones/trash.png'))
+            deleteButton.setFlat(True)
+            deleteButton.setCheckable(True)
+            deleteButton.setStyleSheet("QPushButton: flat;border: none")
+            deleteButton.setObjectName(f'{i}')
+
+            label = qt.QTableWidgetItem(self.formatH5.archH5[f'{key}'].attrs['name'])
+
+            txt = self.formatH5.generateInfotxt(key)
+            label.setToolTip(txt)
+
+            self.imageSelection.setItem(i,0,label)
+            self.imageSelection.setCellWidget(i,1,wRamHdd)
+            self.imageSelection.setCellWidget(i, 2, deleteButton)
+
+            wRamHdd.clicked.connect(self._ImageSelectionRamHddButtonClicked)
+            deleteButton.clicked.connect(self._ImageSelectionDeleteData)
+
+        self.imageSelection.horizontalHeader().setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
+        self.imageSelection.horizontalHeader().setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
+        self.imageSelection.horizontalHeader().setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
+        self.formatH5._closeArchive()
+
+    def _ImageSelectionDeleteData(self):
+        indexDelete = self.sender().objectName()
+        self.formatH5.deleteImage(int(indexDelete))
+        self._imageSelectionUpdateImage()
+        #self.imageSelection.setCellWidget(int(indexDelete),2)
+
+
+
+    def _ImageSelectionRamHddButtonClicked(self):
+        print('In')
+        if self.sender().isChecked():
+            self.sender().setIcon(qt.QIcon('./Icones/ram.png'))
+        else:
+            self.sender().setIcon(qt.QIcon('./Icones/hdd.png'))
 
 
 
@@ -414,6 +459,8 @@ class MainWidget(qt.QWidget):
 
         self.dicPar['path_data'] = filenames
         self.dicPar['flag_streaming'] = True
+        self.dicPar['local'] = False
+
         if len(filenames) > 1:
             self.dicPar['shape_image'] = (tiff_file.shape[0],tiff_file.shape[1],len(filenames))
         elif len(filenames) == 1:
@@ -450,6 +497,7 @@ class MainWidget(qt.QWidget):
         self.dicPar['flag_streaming'] = True
         self.dicPar['shape_image'] = hdf[pathData].shape
         self.dicPar['data_type'] = hdf[pathData].dtype
+        self.dicPar['local'] = False
 
         self.loader = LoadingDataW(self.dicPar['shape_image'],self.dicPar['data_type'],self.dicPar['name'],self.dicPar['path_current_source_file'],self)
         self.loader.validateButton.clicked.connect(self._loadData)
@@ -463,13 +511,13 @@ class MainWidget(qt.QWidget):
         self.dicPar['units'] = self.loader.returnUnitsInfo()
         self.dicPar['pixel_size'] = self.loader.returnPixelsInfo()
 
-
+        """Data Dictionary"""
         self.parent.startUpArchive.arch.openCurrentArchive()
         self.formatH5 = self.parent.startUpArchive.arch
-        self.archH5 = self.formatH5.archH5
         self.formatH5.createEmptyImage()
         self.formatH5.populateImage(self.dicPar)
-        self._imageSelectionAddImage()
+
+        self._imageSelectionUpdateImage()
         self.loader.close()
 
 
