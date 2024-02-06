@@ -19,6 +19,7 @@ class SliceVisualizer(qt.QWidget):
         self.view = CustomGraphicsView(self.scene, self)
 
         self.sliceSlider = SliderAndLabel(self)
+        self.sliceSlider._setRange(0,0)
         self.sliceSlider.slider.valueChanged.connect(self._changeSlice)
 
         layout = qt.QVBoxLayout()
@@ -82,12 +83,13 @@ class SliceVisualizer(qt.QWidget):
 
 class Interactor3D(qt.QWidget):
     CustomGraphicsViewEvent = qt.pyqtSignal()
-
     def __init__(self, parent=None):
         qt.QWidget.__init__(self, parent)
 
-        self.toolBar = CustomToolBar(self)
+        self.dataH5 = None
+        self.dataRam = None
 
+        self.toolBar = CustomToolBar(self)
         self.axialWidget = SliceVisualizer(0)
         self.coronalWidget = SliceVisualizer(1)
         self.sagittalWidget = SliceVisualizer(2)
@@ -109,7 +111,13 @@ class Interactor3D(qt.QWidget):
         splitterVertical.addWidget(splitterAxialCoronal)
         layout.addWidget(splitterVertical,1)
         layout.addWidget(self.timeSlider)
-
-
         self.setLayout(layout)
 
+    def newDisplay(self,h5Prj,index):
+        self.h5Prj = h5Prj
+        print(index)
+        self.index = f'{int(index):05}'
+
+        self.h5Prj.openCurrentArchive()
+        print(self.h5Prj.archH5[self.index], self.h5Prj.dataRam[self.index])
+        self.h5Prj._closeArchive()

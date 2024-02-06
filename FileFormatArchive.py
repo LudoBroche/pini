@@ -194,7 +194,7 @@ class StartUpArchive(qt.QMainWindow):
         self.layoutArchiveW.addLayout(self.buttonLayout,1,0)
         self.mainWidget.setLayout(self.layoutArchiveW)
         self.setCentralWidget(self.mainWidget)
-        self.resize(504, 400)
+        self.resize(600, 400)
         self.show()
 
     def nameProjectChanged(self):

@@ -42,7 +42,7 @@ class MainWidget(qt.QWidget):
         mainLayout = qt.QGridLayout()
         tabWidget = qt.QTabWidget()
         tab3DViewer = qt.QWidget()
-        image3DWidget = Interactor3D(self)
+        self.interactor3D = Interactor3D(self)
 
         self._imageSelectionBuildTable()
 
@@ -60,7 +60,6 @@ class MainWidget(qt.QWidget):
 
         """Signals"""
 
-
         tabWidget.currentChanged.connect(self._tabChanged)
 
         """Widget Placement"""
@@ -74,11 +73,11 @@ class MainWidget(qt.QWidget):
         right_widget.setLayout(vButtonLayout)
 
         splitter = qt.QSplitter(qt.Qt.Horizontal)
-        splitter.addWidget(image3DWidget)
+        splitter.addWidget(self.interactor3D)
         splitter.addWidget(right_widget)
 
         width = qt.QDesktopWidget().screenGeometry().width()
-        splitter.setSizes([width-500,250])
+        splitter.setSizes([width-500,280])
 
         layout3d.addWidget(volumeRenderingGUI)
         tab3DViewer.setLayout(layout3d)
@@ -121,12 +120,19 @@ class MainWidget(qt.QWidget):
             wRamHdd.setCheckable(True)
             wRamHdd.setStyleSheet("QPushButton: flat;border: none")
             wRamHdd.setObjectName(f'{i}')
+
+            self.iconHdd = qt.QIcon('./Icones/hdd.png')
+            self.iconRam = qt.QIcon('./Icones/ram.png')
+
             if self.formatH5.archH5[f'{key}'].attrs['flag_streaming']:
-                wRamHdd.setIcon(qt.QIcon('./Icones/hdd.png'))
+                wRamHdd.setIcon(self.iconHdd)
                 wRamHdd.setChecked(False)
             else:
-                wRamHdd.setIcon(qt.QIcon('./Icones/ram.png'))
+                wRamHdd.setIcon(self.iconRam)
                 wRamHdd.setChecked(True)
+
+            self.iconDispayOff = qt.QIcon('./Icones/eye_close.png')
+            self.iconDispayOn = qt.QIcon('./Icones/eye_open.png')
 
             wDisplay = qt.QPushButton()
             wDisplay.setFlat(True)
@@ -135,6 +141,7 @@ class MainWidget(qt.QWidget):
             wDisplay.setObjectName(f'{i}')
             wDisplay.setIcon(qt.QIcon('./Icones/eye_close.png'))
             wDisplay.setChecked(False)
+
 
             deleteButton = qt.QPushButton()
             deleteButton.setIcon(qt.QIcon('./Icones/trash.png'))
@@ -157,6 +164,7 @@ class MainWidget(qt.QWidget):
             self.imageSelection.setCellWidget(i,2,wRamHdd)
             self.imageSelection.setCellWidget(i, 3, deleteButton)
 
+            wDisplay.clicked.connect(self._DisplayData)
             wRamHdd.clicked.connect(self._ImageSelectionRamHddButtonClicked)
             deleteButton.clicked.connect(self._ImageSelectionDeleteData)
 
@@ -165,6 +173,7 @@ class MainWidget(qt.QWidget):
         self.imageSelection.horizontalHeader().setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
         self.imageSelection.horizontalHeader().setSectionResizeMode(3, qt.QHeaderView.ResizeToContents)
         self.formatH5._closeArchive()
+
 
     def nameDataSetChange(self):
         self.formatH5.openCurrentArchive()
@@ -179,16 +188,32 @@ class MainWidget(qt.QWidget):
         self.formatH5.deleteImage(int(indexDelete))
         self._imageSelectionUpdateImage()
 
+    def _DisplayData(self):
+        index = self.sender().objectName()
+        if self.sender().isChecked():
+            self.sender().setIcon(self.iconDispayOn)
+            for i in range(0,self.imageSelection.rowCount()):
+                w = self.imageSelection.cellWidget(i,1)
+                if w.objectName() != index:
+                    w.setChecked(False)
+                    w.setIcon(self.iconDispayOff)
+
+            self.interactor3D.newDisplay(self.formatH5,index)
+
+        else:
+            self.sender().setIcon(self.iconDispayOff)
+
+
     def _ImageSelectionRamHddButtonClicked(self):
         index = self.sender().objectName()
         if self.sender().isChecked():
-            self.sender().setIcon(qt.QIcon('./Icones/ram.png'))
+            self.sender().setIcon(self.iconRam)
             error = self.formatH5.loadDataToRam(int(index))
             if not error:
                 self.sender().setChecked(False)
-                self.sender().setIcon(qt.QIcon('./Icones/hdd.png'))
+                self.sender().setIcon(self.iconHdd)
         else:
-            self.sender().setIcon(qt.QIcon('./Icones/hdd.png'))
+            self.sender().setIcon(self.iconHdd)
             self.formatH5.removeDataFromRam(int(index))
 
 
