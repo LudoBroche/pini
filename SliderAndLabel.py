@@ -13,8 +13,11 @@ class SliderAndLabel(qt.QWidget):
         self.layout=qt.QHBoxLayout()
         self.layout.addWidget(self.slider)
         self.layout.addWidget(self.Label)
+
+        self.slider.setStyleSheet("border: 0px")
+        self.Label.setStyleSheet("border: 0px")
+
         self._changeLabel()
-        #self.connect(self.slider,qt.SIGNAL("valueChanged(int)"),self._changeLabel)
         self.slider.valueChanged.connect(self._changeLabel)
         self.setLayout(self.layout)
 

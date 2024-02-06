@@ -8,8 +8,6 @@ import fabio
 
 from SliceViualizer import Interactor3D
 from VolumeRenderingGUI import VolumeRenderingGUI
-from ProgressBarWidget import ProgressBar
-from FileFormatArchive import ArchiveHdf5
 from LoadingDataW import LoadingDataW
 
 class AlignDelegate(qt.QStyledItemDelegate):
@@ -32,100 +30,71 @@ class MainWidget(qt.QWidget):
         """ Attributs """
 
         self.parent = parent
-        self.DataRam = {}
-        self.Items_list = []
-        self.Name_list = []
+        self.timer = qt.QTimer()
+        self.timer.start(1000)
+        self.timer.timeout.connect(self._updatePcInfo)
+        self.buildMainLayout()
+
+    def buildMainLayout(self):
 
         """ Widgets Initialisation """
 
-        self.mainLayout = qt.QGridLayout()
-
-        self.tabWidget = qt.QTabWidget()
-        self.tabPlanesView = qt.QWidget()
-        self.tab3DViewer = qt.QWidget()
-
-        self.plt = pg.GraphicsLayoutWidget()
-        self.plt.hide()
-
-        self.layoutViewPlanes = qt.QGridLayout()
-        self.buttonLayout = qt.QVBoxLayout()
-        self.image3DWidget = Interactor3D(self)
+        mainLayout = qt.QGridLayout()
+        tabWidget = qt.QTabWidget()
+        tab3DViewer = qt.QWidget()
+        image3DWidget = Interactor3D(self)
 
         self._imageSelectionBuildTable()
 
-        self.progressBar = ProgressBar(self)
-
         self.systemInfo1 = qt.QLabel()
-        fontSystem = self.systemInfo1.font()
+        fontSystem =self.systemInfo1.font()
         fontSystem.setPointSize(10)
         self.systemInfo1.setFont(fontSystem)
-
         self.systemInfo2 = qt.QLabel()
         fontSystem = self.systemInfo2.font()
         fontSystem.setPointSize(10)
         self.systemInfo2.setFont(fontSystem)
 
-        self.timer = qt.QTimer()
-        self.timer.start(1000)
-
-
-        self.layout3d = qt.QGridLayout()
-        self.volumeRenderingGUI = VolumeRenderingGUI()
-
-        """ Widgets Design """
-        self.imageSelection.setMaximumWidth(250)
+        layout3d = qt.QGridLayout()
+        volumeRenderingGUI = VolumeRenderingGUI()
 
         """Signals"""
 
-        self.timer.timeout.connect(self._updatePcInfo)
 
-        #self.imageSelection.customContextMenuRequested.connect(self._listItemRightClicked)
-        #self.imageSelection.currentRowChanged.connect(self._dataToShowChanged)
-
-        self.image3DWidget.axialWidget.MovedOnVizualizer.connect(self._moved)
-        self.image3DWidget.coronalWidget.MovedOnVizualizer.connect(self._moved)
-        self.image3DWidget.sagittalWidget.MovedOnVizualizer.connect(self._moved)
-        self.image3DWidget.axialWidget.clickedOnVizualizer.connect(self._cliked)
-        self.image3DWidget.coronalWidget.clickedOnVizualizer.connect(self._cliked)
-        self.image3DWidget.sagittalWidget.clickedOnVizualizer.connect(self._cliked)
-        self.image3DWidget.axialWidget.releasedOnVizualizer.connect(self._released)
-        self.image3DWidget.coronalWidget.releasedOnVizualizer.connect(self._released)
-        self.image3DWidget.sagittalWidget.releasedOnVizualizer.connect(self._released)
-        self.image3DWidget.toolBar.radius.lineEdit.textChanged.connect(self._changeRadius)
-        self.image3DWidget.toolBar.pointRemoveAction.triggered.connect(self._removeItems)
-
-        self.tabWidget.currentChanged.connect(self._tabChanged)
+        tabWidget.currentChanged.connect(self._tabChanged)
 
         """Widget Placement"""
-        self.buttonLayout.addWidget(self.imageSelection)
-        self.buttonLayout.setAlignment(qt.Qt.AlignTop)
 
-        self.layoutViewPlanes.addWidget(self.image3DWidget, 0, 0)
-        self.layoutViewPlanes.addWidget(self.plt, 0, 1)
-        self.layoutViewPlanes.addLayout(self.buttonLayout, 0, 2)
-        self.layoutViewPlanes.addWidget(self.progressBar, 1, 0)
-        self.layoutViewPlanes.addWidget(self.systemInfo1, 1, 2)
-        self.layoutViewPlanes.addWidget(self.systemInfo2, 2, 2)
+        vButtonLayout = qt.QVBoxLayout()
+        vButtonLayout.addWidget(self.imageSelection)
+        vButtonLayout.addWidget(self.systemInfo1)
+        vButtonLayout.addWidget(self.systemInfo2)
 
-        self.tabPlanesView.setLayout(self.layoutViewPlanes)
+        right_widget = qt.QWidget()
+        right_widget.setLayout(vButtonLayout)
 
-        self.layout3d.addWidget(self.volumeRenderingGUI)
-        self.tab3DViewer.setLayout(self.layout3d)
+        splitter = qt.QSplitter(qt.Qt.Horizontal)
+        splitter.addWidget(image3DWidget)
+        splitter.addWidget(right_widget)
 
-        self.tabWidget.addTab(self.tabPlanesView, '2D Viewer')
-        self.tabWidget.addTab(self.tab3DViewer, '3D Viewer')
+        width = qt.QDesktopWidget().screenGeometry().width()
+        splitter.setSizes([width-500,250])
 
-        self.mainLayout.addWidget(self.tabWidget)
-        self.setLayout(self.mainLayout)
+        layout3d.addWidget(volumeRenderingGUI)
+        tab3DViewer.setLayout(layout3d)
+
+        tabWidget.addTab(splitter, '2D Viewer')
+        tabWidget.addTab(tab3DViewer, '3D Viewer')
+
+        mainLayout.addWidget(tabWidget)
+        self.setLayout(mainLayout)
 
 
     def _imageSelectionBuildTable(self):
 
-
         self.imageSelection = qt.QTableWidget(self)
-
         self.imageSelection.setRowCount(0)
-        self.imageSelection.setColumnCount(3)
+        self.imageSelection.setColumnCount(4)
         self.imageSelection.setShowGrid(False)
         self.imageSelection.horizontalHeader().hide()
 
@@ -134,7 +103,6 @@ class MainWidget(qt.QWidget):
         self.parent.startUpArchive.arch.openCurrentArchive()
         self.formatH5 = self.parent.startUpArchive.arch
         self.formatH5.openCurrentArchive()
-
 
         currentRowCount = self.imageSelection.rowCount()
 
@@ -149,7 +117,6 @@ class MainWidget(qt.QWidget):
 
 
             wRamHdd = qt.QPushButton()
-            #wRamHdd.setIcon(qt.QIcon('./Icones/hdd.png'))
             wRamHdd.setFlat(True)
             wRamHdd.setCheckable(True)
             wRamHdd.setStyleSheet("QPushButton: flat;border: none")
@@ -161,6 +128,13 @@ class MainWidget(qt.QWidget):
                 wRamHdd.setIcon(qt.QIcon('./Icones/ram.png'))
                 wRamHdd.setChecked(True)
 
+            wDisplay = qt.QPushButton()
+            wDisplay.setFlat(True)
+            wDisplay.setCheckable(True)
+            wDisplay.setStyleSheet("QPushButton: flat;border: none")
+            wDisplay.setObjectName(f'{i}')
+            wDisplay.setIcon(qt.QIcon('./Icones/eye_close.png'))
+            wDisplay.setChecked(False)
 
             deleteButton = qt.QPushButton()
             deleteButton.setIcon(qt.QIcon('./Icones/trash.png'))
@@ -179,8 +153,9 @@ class MainWidget(qt.QWidget):
             label.setToolTip(txt)
 
             self.imageSelection.setCellWidget(i,0,label)
-            self.imageSelection.setCellWidget(i,1,wRamHdd)
-            self.imageSelection.setCellWidget(i, 2, deleteButton)
+            self.imageSelection.setCellWidget(i, 1, wDisplay)
+            self.imageSelection.setCellWidget(i,2,wRamHdd)
+            self.imageSelection.setCellWidget(i, 3, deleteButton)
 
             wRamHdd.clicked.connect(self._ImageSelectionRamHddButtonClicked)
             deleteButton.clicked.connect(self._ImageSelectionDeleteData)
@@ -188,6 +163,7 @@ class MainWidget(qt.QWidget):
         self.imageSelection.horizontalHeader().setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
         self.imageSelection.horizontalHeader().setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
         self.imageSelection.horizontalHeader().setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
+        self.imageSelection.horizontalHeader().setSectionResizeMode(3, qt.QHeaderView.ResizeToContents)
         self.formatH5._closeArchive()
 
     def nameDataSetChange(self):
@@ -202,9 +178,6 @@ class MainWidget(qt.QWidget):
         indexDelete = self.sender().objectName()
         self.formatH5.deleteImage(int(indexDelete))
         self._imageSelectionUpdateImage()
-        #self.imageSelection.setCellWidget(int(indexDelete),2)
-
-
 
     def _ImageSelectionRamHddButtonClicked(self):
         index = self.sender().objectName()
@@ -220,7 +193,6 @@ class MainWidget(qt.QWidget):
 
 
     def _updatePcInfo(self):
-
             path = self.parent.setting.parameter['pini_parameters']['home_collection']['path']
             hdd = psutil.disk_usage(str(path))
 
@@ -240,218 +212,6 @@ class MainWidget(qt.QWidget):
 
             self.systemInfo1.setText(string_space)
             self.systemInfo2.setText(string_mem)
-
-
-    def _listItemRightClicked(self, QPos):
-        listMenu = qt.QMenu()
-        remove_item = listMenu.addAction("Delete")
-        remove_item.triggered.connect(self.removeImage)
-        parentPosition = self.imageSelection.mapToGlobal(qt.QPoint(0, 0))
-        listMenu.move(parentPosition + QPos)
-        listMenu.show()
-
-    def _dataToShowChanged(self):
-        self.image3DWidget._setDataVolume(self.Data_list[self.imageSelection.currentRow()])
-        if len(self.Items_list) > self.imageSelection.currentRow():
-            self.image3DWidget.updateItems(self.Items_list[self.imageSelection.currentRow()])
-        if len(self.Overlays) > self.imageSelection.currentRow():
-            self.image3DWidget.updateOverlays(self.Overlays[self.imageSelection.currentRow()])
-
-    def _moved(self, ddict):
-        x = ddict['x']
-        y = ddict['y']
-        z = ddict['z']
-        try:
-            stringMouse = '(' + str(x) + ' , ' + str(y) + ' , ' + str(z) + ')     '
-            textValue = '%.5f' % (self.Data_list[self.imageSelection.currentRow()][z, y, x])
-            stringMouse += textValue
-        except:
-            stringMouse = '(' + str(int(ddict['x'])) + ' , ' + str(int(ddict['y'])) + ' , ' + str(z) + ')'
-
-        self.image3DWidget.toolBar.mouseInfo.setText(stringMouse)
-
-    def _cliked(self,ddict):
-        x = ddict['x']
-        y = ddict['y']
-        z = ddict['z']
-        PlaneSection = ddict['PlaneSection']
-        if self.imageSelection.currentRow() != -1:
-            if self.image3DWidget.toolBar.pointerAction.isChecked() == True:
-                seed = [x, y, z]
-
-                self.Items_list[self.imageSelection.currentRow()]['Seeds']['Direction0'].append(seed)
-                self.Items_list[self.imageSelection.currentRow()]['Seeds']['Direction1'].append(seed)
-                self.Items_list[self.imageSelection.currentRow()]['Seeds']['Direction2'].append(seed)
-                self.image3DWidget.updateItems(self.Items_list[self.imageSelection.currentRow()])
-
-            if self.image3DWidget.toolBar.zone1Action.isChecked() == True:
-                self.clic_zone = [x, y, z]
-
-            if self.image3DWidget.toolBar.polygonAction.isChecked() == True:
-
-                seed = [x, y, z]
-                if (ddict['event'] != 'RMousePressed'):
-                    if PlaneSection == 0:
-
-                        if len(self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction0'][-1]) != 0:
-                            if self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction0'][-1][-1][2] != z:
-                                self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction0'].append([])
-
-                            self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction0'][-1].append(
-                                [seed[0] + 0.5, seed[1] + 0.5, seed[2]])
-                        else:
-                            self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction0'][-1].append(
-                                [seed[0] + 0.5, seed[1] + 0.5, seed[2]])
-
-                    if PlaneSection == 1:
-                        if len(self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction1'][-1]) != 0:
-                            if self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction1'][-1][-1][1] != y:
-                                self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction1'].append([])
-                            self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction1'][-1].append(
-                                [seed[0] + 0.5, seed[1], seed[2] + 0.5])
-
-
-                        else:
-                            self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction1'][-1].append(
-                                [seed[0] + 0.5, seed[1], seed[2] + 0.5])
-
-                    if PlaneSection == 2:
-                        if len(self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction2'][-1]) != 0:
-                            if self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction2'][-1][-1][0] != x:
-                                self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction2'].append([])
-
-                            self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction2'][-1].append(
-                                [seed[0], seed[1] + 0.5, seed[2] + 0.5])
-                        else:
-                            self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction2'][-1].append(
-                                [seed[0], seed[1] + 0.5, seed[2] + 0.5])
-                else:
-                    if PlaneSection == 0:
-                        self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction0'].append([])
-                    if PlaneSection == 1:
-                        self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction1'].append([])
-                    if PlaneSection == 2:
-                        self.Items_list[self.imageSelection.currentRow()]['Poly']['Direction2'].append([])
-
-                self.image3DWidget.updateItems(self.Items_list[self.imageSelection.currentRow()])
-
-            if self.image3DWidget.toolBar.drawingAction.isChecked() == True:
-                seed = [x, y, z, float(self.image3DWidget.toolBar.radius.lineEdit.text())]
-                if PlaneSection == 0:
-                    flag_in_circle = False
-                    for i, circle in enumerate(self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction0']):
-                        if (((circle[0] - x) ** 2 + (circle[1] - y) ** 2) ** 0.5) < (circle[3]):
-                            flag_in_circle = True
-                            self.circleToMove = [i, x, y]
-
-                    if not flag_in_circle:
-                        self.circleToMove = [0]
-                        self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction0'].append(seed)
-                if PlaneSection == 1:
-                    flag_in_circle = False
-                    for i, circle in enumerate(self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction1']):
-                        if (((circle[0] - x) ** 2 + (circle[2] - z) ** 2) ** 0.5) < (circle[3]):
-                            flag_in_circle = True
-                            self.circleToMove = [i, x, z]
-                    if not flag_in_circle:
-                        self.circleToMove = [1]
-                        self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction1'].append(seed)
-                if PlaneSection == 2:
-                    flag_in_circle = False
-                    for i, circle in enumerate(self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction2']):
-                        if (((circle[1] - y) ** 2 + (circle[2] - z) ** 2) ** 0.5) < (circle[3]):
-                            flag_in_circle = True
-                            self.circleToMove = [i, y, z]
-                    if not flag_in_circle:
-                        self.circleToMove = [2]
-                        self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction2'].append(seed)
-
-                self.image3DWidget.updateItems(self.Items_list[self.imageSelection.currentRow()])
-
-    def _released(self,ddict):
-        x = ddict['x']
-        y = ddict['y']
-        z = ddict['z']
-        PlaneSection = ddict['PlaneSection']
-        if self.imageSelection.currentRow() != -1:
-            if self.image3DWidget.toolBar.zone1Action.isChecked() == True:
-    
-                if PlaneSection == 0:
-                    self.Items_list[self.imageSelection.currentRow()]['Zones']['Direction0'].append(
-                        [self.clic_zone[0], self.clic_zone[1], self.clic_zone[2], x, y, z])
-                if PlaneSection == 1:
-                    self.Items_list[self.imageSelection.currentRow()]['Zones']['Direction1'].append(
-                        [self.clic_zone[0], self.clic_zone[1], self.clic_zone[2], x, y, z])
-                if PlaneSection == 2:
-                    self.Items_list[self.imageSelection.currentRow()]['Zones']['Direction2'].append(
-                        [self.clic_zone[0], self.clic_zone[1], self.clic_zone[2], x, y, z])
-    
-                self.image3DWidget.updateItems(self.Items_list[self.imageSelection.currentRow()])
-    
-            if self.image3DWidget.toolBar.drawingAction.isChecked() == True:
-                if PlaneSection == 0:
-                    if len(self.circleToMove) > 1:
-                        circleToMove = self.circleToMove[0]
-    
-                        for i, circle in enumerate(
-                                self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction0']):
-                            if i == circleToMove:
-                                dx = x - self.circleToMove[1]
-                                dy = y - self.circleToMove[2]
-                                self.circleToMove = [0]
-                                self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction0'][i][0] += dx
-                                self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction0'][i][1] += dy
-                                self.image3DWidget.updateItems(self.Items_list[self.imageSelection.currentRow()])
-    
-                if PlaneSection == 1:
-                    if len(self.circleToMove) > 1:
-                        circleToMove = self.circleToMove[0]
-    
-                        for i, circle in enumerate(
-                                self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction1']):
-                            if i == circleToMove:
-                                dx = x - self.circleToMove[1]
-                                dz = z - self.circleToMove[2]
-                                self.circleToMove = [1]
-                                self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction1'][i][0] += dx
-                                self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction1'][i][2] += dz
-                                self.image3DWidget.updateItems(self.Items_list[self.imageSelection.currentRow()])
-    
-                if PlaneSection == 2:
-                    if len(self.circleToMove) > 1:
-                        circleToMove = self.circleToMove[0]
-    
-                        for i, circle in enumerate(
-                                self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction2']):
-                            if i == circleToMove:
-                                dy = y - self.circleToMove[1]
-                                dz = z - self.circleToMove[2]
-                                self.circleToMove = [2]
-                                self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction2'][i][1] += dy
-                                self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction2'][i][2] += dz
-                                self.image3DWidget.updateItems(self.Items_list[self.imageSelection.currentRow()])
-
-    def _changeRadius(self,radius):
-        newRadius = float(radius)
-        if self.imageSelection.currentRow() != -1:
-            if self.image3DWidget.toolBar.drawingAction.isChecked() == True:
-    
-                if self.circleToMove[0] == 0:
-                    self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction0'][-1][3] = newRadius
-                if self.circleToMove[0] == 1:
-                    self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction1'][-1][3] = newRadius
-                if self.circleToMove[0] == 2:
-                    self.Items_list[self.imageSelection.currentRow()]['Circles']['Direction2'][-1][3] = newRadius
-    
-                self.image3DWidget.updateItems(self.Items_list[self.imageSelection.currentRow()])
-
-    def _removeItems(self):
-        self.Items_list[self.imageSelection.currentRow()] = {}
-        self.Items_list[self.imageSelection.currentRow()] = copy.deepcopy(self.ItemsInit)
-        self.image3DWidget.updateItems(self.Items_list[self.imageSelection.currentRow()])
-        self.image3DWidget.axialWidget._changeSlice()
-        self.image3DWidget.coronalWidget._changeSlice()
-        self.image3DWidget.sagittalWidget._changeSlice()
 
     def _tabChanged(self, tabIndex):
         if tabIndex == 1:

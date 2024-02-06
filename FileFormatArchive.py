@@ -394,8 +394,11 @@ class ArchiveHdf5:
 
 
     def openArchive(self,archivePath):
+        self.dataRam = {}
         self.pathArchive = Path(archivePath)
         self.archH5 = h5py.File(self.pathArchive,'a')
+        for key in self.archH5.keys():
+            self.dataRam[key] = []
         self.generate_lock_file()
 
     def openCurrentArchive(self):
@@ -518,6 +521,8 @@ class ArchiveHdf5:
         if indexh5 in list(self.dataRam.keys()):
             del self.dataRam[indexh5]
 
+        self.dataRam[indexh5] = []
+
 
     def deleteImage(self,indexDelete):
         self.openCurrentArchive()
@@ -533,17 +538,23 @@ class ArchiveHdf5:
                 if key != indexh5:
                     self.archH5.copy(self.archH5[key],newh5,str(i).zfill(5))
                     i += 1
+            for attr in self.archH5.attrs.keys():
+                newh5.attrs[attr] = self.archH5.attrs[attr]
 
         self._closeArchive()
         self._updateTmp()
 
         del self.dataRam[indexh5]
+        dictmp = {}
+
         for key in self.dataRam.keys():
             key_num = int(key)
             if key_num > int(indexDelete):
-                self.dataRam[str(key_num-1).zfill(5)] = self.dataRam[key]
-                del self.dataRam
+                dictmp[str(key_num-1).zfill(5)] = self.dataRam[key]
+            else:
+                dictmp[key] = self.dataRam[key]
 
+        self.dataRam = dictmp
     def _updateTmp(self):
         os.remove(self.pathArchive)
         os.rename('./tmp.h5',self.pathArchive)
