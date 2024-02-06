@@ -10,7 +10,8 @@ import getpass
 import uuid
 import numpy as np
 from tifffile import TiffFile
-import contextlib
+import psutil
+import random
 
 class AlignDelegate(qt.QStyledItemDelegate):
     def initStyleOption(self, option, index):
@@ -136,7 +137,6 @@ class StartUpArchive(qt.QMainWindow):
 
         for i, arch in enumerate(self.list_h5_archive):
 
-
             with  h5py.File(arch,'r') as h5:
                 if self.arch != None:
                     if str(self.arch.pathArchive)==str(arch):
@@ -144,7 +144,13 @@ class StartUpArchive(qt.QMainWindow):
                     else:
                         flag_current_archive = False
 
-                self.tableArchive.setItem(i + 1, 0, qt.QTableWidgetItem(h5.attrs['project_name']))
+                projectName = qt.QLineEdit(h5.attrs['project_name'])
+                projectName.editingFinished.connect(self.nameProjectChanged)
+                projectName.setFrame(False)
+                projectName.setObjectName(str(i))
+
+
+                self.tableArchive.setCellWidget(i + 1, 0, projectName)
                 self.tableArchive.setItem(i + 1, 1, qt.QTableWidgetItem(h5.attrs['user']))
                 self.tableArchive.setItem(i + 1, 2, qt.QTableWidgetItem(h5.attrs['creation_date'].split('.')[0]))
                 self.tableArchive.setItem(i + 1, 3, qt.QTableWidgetItem(h5.attrs['modification_date'].split('.')[0]))
@@ -164,14 +170,15 @@ class StartUpArchive(qt.QMainWindow):
             if flag_current_archive:
                 color = qt.QColor(200, 200, 200)
                 for j in range(0,7):
-                    if j < 5 :
-                        self.tableArchive.item(i + 1, j).setBackground(color)
-                    else:
+                    if j == 0 or j >= 5 :
                         w = self.tableArchive.cellWidget(i + 1, j)
                         w.setAutoFillBackground(True)
                         p = w.palette()
                         p.setColor(w.backgroundRole(), color)
                         w.setPalette(p)
+                    elif j < 5:
+                        self.tableArchive.item(i + 1, j).setBackground(color)
+
 
             cBImp.setObjectName(str(i))
             cBImp.stateChanged.connect(self._selectImportChange)
@@ -189,6 +196,12 @@ class StartUpArchive(qt.QMainWindow):
         self.setCentralWidget(self.mainWidget)
         self.resize(504, 400)
         self.show()
+
+    def nameProjectChanged(self):
+        index = int(self.sender().objectName())
+        fileH5 = self.list_h5_archive[index]
+        with  h5py.File(fileH5,'a') as h5:
+            h5.attrs['project_name'] = self.sender().text()
 
     def _selectDeleteChange(self):
         if self.sender().isChecked():
@@ -243,6 +256,7 @@ class StartUpArchive(qt.QMainWindow):
 
     def _check4Archive(self):
         self.list_h5_archive = glob.glob(str(self.pathFolderArchive) + '/pini*.h5')
+        self.list_h5_archive.sort()
         self.list_h5_archive = self.list_h5_archive[::-1]
 
     def _newArchive(self):
@@ -289,7 +303,8 @@ class StartUpArchive(qt.QMainWindow):
                 self.arch._closeArchive()
         else:
             self.close()
-
+        self.arch._closeArchive()
+        self.arch.updateStreamingFlags()
         self.parent.mainWidget._imageSelectionUpdateImage()
 
 
@@ -326,6 +341,7 @@ class ArchiveHdf5:
         self.pathArchive = ''
         self.archH5 = None
         self._loadConfigFile()
+        self.dataRam = {}
 
     def _loadConfigFile(self):
         with open(self.path_xml) as fd:
@@ -346,15 +362,21 @@ class ArchiveHdf5:
 
         dt = h5py.special_dtype(vlen=str)
         self.archH5.attrs['hdf5_pini_version'] = self.parameter['pini_parameters']['home_collection']['hdf5_pini_version']
-        self.archH5.attrs["project_name"] = ''
+        self.archH5.attrs["project_name"] = f'{random.randint(0,9999):04}'
         self.archH5.attrs["user"] = getpass.getuser()
         self.archH5.attrs["creation_date"] = str(dateTime)
         self.archH5.attrs["modification_date"] = str(dateTime)
         self.archH5.attrs["code"] = str(uuid.uuid4())
         self._closeArchive()
 
+    def updateStreamingFlags(self):
+        self.openCurrentArchive()
+        for key in self.archH5.keys():
+            self.archH5[key].attrs["flag_streaming"] = True
+        self._closeArchive()
+
+
     def generate_lock_file(self):
-        print('')
         lock_file = os.path.splitext(self.pathArchive)[0]+'.lock'
         f = open(lock_file,'w')
         f.close()
@@ -409,7 +431,6 @@ class ArchiveHdf5:
         self.archH5[index].attrs["name"] = h5py.Empty(dt)
         self.archH5[index].attrs["format"] = h5py.Empty(dt)
         self.archH5[index].attrs["type"] = h5py.Empty(dt)
-        self.archH5[index].attrs["path_original_source_file"] = h5py.Empty(dt)
         self.archH5[index].attrs["path_current_source_file"] = h5py.Empty(dt)
         self.archH5[index].attrs["flag_streaming"] = h5py.Empty(np.dtype('?'))
         self.archH5[index].attrs["local"] = h5py.Empty(np.dtype('?'))
@@ -421,6 +442,8 @@ class ArchiveHdf5:
         self.archH5[index].create_dataset("data",dtype=np.dtype('f'))
         self.archH5[index].create_group("roi")
         self.archH5[index].create_group("pipeline")
+
+        self.dataRam[index] = []
 
         self._closeArchive()
 
@@ -438,14 +461,20 @@ class ArchiveHdf5:
         px_sizes = self.archH5[f'{indexh5}/pixel_size'][:]
         txtUnit = ''
         for i,px_size in enumerate(px_sizes):
-            unit = self.archH5[f'{indexh5}/units'][i].decode('utf-8 ')
+            if hasattr(self.archH5[f'{indexh5}/units'][i],'decode'):
+                unit = self.archH5[f'{indexh5}/units'][i].decode('utf-8 ')
+            else:
+                unit = self.archH5[f'{indexh5}/units'][i]
             txtUnit += f'{px_size} {unit} '
 
         txt += f'{shape} [ {txtUnit}]\n'
         axes = self.archH5[f'{indexh5}/axes'][:]
         txtAxes = ''
         for axe in axes:
-            txtAxes += f'{axe.decode("utf-8")} '
+            if hasattr(axe, 'decode'):
+                txtAxes += f'{axe.decode("utf-8")} '
+            else:
+                txtAxes += f'{axe} '
 
         txt += f'{txtAxes}\n'
 
@@ -453,6 +482,42 @@ class ArchiveHdf5:
         txt += path
 
         return txt
+
+    def loadDataToRam(self,indexLoad):
+        self.openCurrentArchive()
+        indexh5 = str(indexLoad).zfill(5)
+
+        type = self.archH5[f'{indexh5}/data'].dtype
+        fullSize = type.itemsize
+        shape = self.archH5[f'{indexh5}/data'].shape
+        for ishape in shape:
+            fullSize *= ishape
+        mem = psutil.virtual_memory()
+        if fullSize > mem.available:
+            msg = qt.QMessageBox()
+            msg.setWindowIcon(qt.QIcon('/Icones/transp.png'))
+            msg.setIcon(qt.QMessageBox.Warning)
+            msg.setStandardButtons(qt.QMessageBox.Ok)
+            txt = "No enough available  Virtual Memory to load the dataset"
+            msg.setText(txt)
+            msg.setWindowTitle(' ')
+            msg.exec()
+            return 0
+
+
+        self.dataRam[indexh5] = self.archH5[f'{indexh5}/data'][:]
+        self.archH5[f'{indexh5}'].attrs['flag_streaming'] = False
+        self._closeArchive()
+        return 1
+
+    def removeDataFromRam(self,indexDel):
+        self.openCurrentArchive()
+        indexh5 = str(indexDel).zfill(5)
+        self.archH5[f'{indexh5}'].attrs['flag_streaming'] = True
+        self._closeArchive()
+        if indexh5 in list(self.dataRam.keys()):
+            del self.dataRam[indexh5]
+
 
     def deleteImage(self,indexDelete):
         self.openCurrentArchive()
@@ -465,12 +530,19 @@ class ArchiveHdf5:
 
             i = 0
             for key in list(self.archH5.keys()):
-                print(key,indexh5,str(i).zfill(5))
                 if key != indexh5:
                     self.archH5.copy(self.archH5[key],newh5,str(i).zfill(5))
                     i += 1
+
         self._closeArchive()
         self._updateTmp()
+
+        del self.dataRam[indexh5]
+        for key in self.dataRam.keys():
+            key_num = int(key)
+            if key_num > int(indexDelete):
+                self.dataRam[str(key_num-1).zfill(5)] = self.dataRam[key]
+                del self.dataRam
 
     def _updateTmp(self):
         os.remove(self.pathArchive)
@@ -484,10 +556,8 @@ class ArchiveHdf5:
         index_list = [int(k) for k in list(self.archH5.keys())]
         indexh5 = max(index_list)
         indexh5 = str(indexh5).zfill(5)
-
         self.archH5[indexh5].attrs["name"] = dicPar["name"]
         self.archH5[indexh5].attrs["format"] = dicPar["format"]
-        self.archH5[indexh5].attrs["path_original_source_file"] = dicPar["path_original_source_file"]
         self.archH5[indexh5].attrs["path_current_source_file"] = dicPar["path_current_source_file"]
         self.archH5[indexh5].attrs["flag_streaming"] = dicPar["flag_streaming"]
         self.archH5[indexh5].attrs["local"] = dicPar["local"]
@@ -514,7 +584,8 @@ class ArchiveHdf5:
                 self.archH5[indexh5].create_group('tiff_links')
             dtype = None
             for i,pathTiff in enumerate(self.archH5[indexh5]["path_data"]):
-                pathTiff = pathTiff.decode('ascii')
+                if hasattr(pathTiff,'decode'):
+                    pathTiff = pathTiff.decode('ascii')
 
                 with TiffFile(pathTiff) as tif:
                     fh = tif.filehandle

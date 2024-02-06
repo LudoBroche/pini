@@ -30,10 +30,7 @@ class LoadingDataW(qt.QMainWindow):
             else:
                 break
 
-
         string_size = f"{size_total:.2f} {unit}"
-
-
 
         stringLabel = self.nameImage + ' '*5 + self.pathData
         self.setWindowTitle(stringLabel)

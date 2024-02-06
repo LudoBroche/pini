@@ -362,7 +362,7 @@ class HDF5Importer(qt.QMainWindow):
             self,
             'QFileDialog.getOpenFileName()',
             '',
-            'HDF5 Files (*.hdf *.h5 *.hdf5);; All Files (*.*)',
+            'HDF5 Files (*.hdf *.h5 *.hdf5 *.nx);; All Files (*.*)',
             options=options
         )
 

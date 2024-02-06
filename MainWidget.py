@@ -32,11 +32,9 @@ class MainWidget(qt.QWidget):
         """ Attributs """
 
         self.parent = parent
-        self.Data_list = []
+        self.DataRam = {}
         self.Items_list = []
         self.Name_list = []
-
-
 
         """ Widgets Initialisation """
 
@@ -131,10 +129,6 @@ class MainWidget(qt.QWidget):
         self.imageSelection.setShowGrid(False)
         self.imageSelection.horizontalHeader().hide()
 
-        #self.imageSelection.horizontalHeader().setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
-        #self.imageSelection.setColumnWidth(1, 0)
-        #self.imageSelection.horizontalHeader().setDefaultAlignment(qt.Qt.AlignCenter)
-
 
     def _imageSelectionUpdateImage(self):
         self.parent.startUpArchive.arch.openCurrentArchive()
@@ -155,11 +149,17 @@ class MainWidget(qt.QWidget):
 
 
             wRamHdd = qt.QPushButton()
-            wRamHdd.setIcon(qt.QIcon('./Icones/hdd.png'))
+            #wRamHdd.setIcon(qt.QIcon('./Icones/hdd.png'))
             wRamHdd.setFlat(True)
             wRamHdd.setCheckable(True)
             wRamHdd.setStyleSheet("QPushButton: flat;border: none")
             wRamHdd.setObjectName(f'{i}')
+            if self.formatH5.archH5[f'{key}'].attrs['flag_streaming']:
+                wRamHdd.setIcon(qt.QIcon('./Icones/hdd.png'))
+                wRamHdd.setChecked(False)
+            else:
+                wRamHdd.setIcon(qt.QIcon('./Icones/ram.png'))
+                wRamHdd.setChecked(True)
 
 
             deleteButton = qt.QPushButton()
@@ -169,12 +169,16 @@ class MainWidget(qt.QWidget):
             deleteButton.setStyleSheet("QPushButton: flat;border: none")
             deleteButton.setObjectName(f'{i}')
 
-            label = qt.QTableWidgetItem(self.formatH5.archH5[f'{key}'].attrs['name'])
+
+            label = qt.QLineEdit(self.formatH5.archH5[f'{key}'].attrs['name'])
+            label.setFrame(False)
+            label.editingFinished.connect(self.nameDataSetChange)
+            label.setObjectName(f'{i}')
 
             txt = self.formatH5.generateInfotxt(key)
             label.setToolTip(txt)
 
-            self.imageSelection.setItem(i,0,label)
+            self.imageSelection.setCellWidget(i,0,label)
             self.imageSelection.setCellWidget(i,1,wRamHdd)
             self.imageSelection.setCellWidget(i, 2, deleteButton)
 
@@ -186,6 +190,14 @@ class MainWidget(qt.QWidget):
         self.imageSelection.horizontalHeader().setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
         self.formatH5._closeArchive()
 
+    def nameDataSetChange(self):
+        self.formatH5.openCurrentArchive()
+        index = int(self.sender().objectName())
+        name = self.sender().text()
+        self.formatH5.archH5[f'{index:05}'].attrs['name'] = name
+        self.formatH5._closeArchive()
+        self._imageSelectionUpdateImage()
+
     def _ImageSelectionDeleteData(self):
         indexDelete = self.sender().objectName()
         self.formatH5.deleteImage(int(indexDelete))
@@ -195,13 +207,16 @@ class MainWidget(qt.QWidget):
 
 
     def _ImageSelectionRamHddButtonClicked(self):
-        print('In')
+        index = self.sender().objectName()
         if self.sender().isChecked():
             self.sender().setIcon(qt.QIcon('./Icones/ram.png'))
+            error = self.formatH5.loadDataToRam(int(index))
+            if not error:
+                self.sender().setChecked(False)
+                self.sender().setIcon(qt.QIcon('./Icones/hdd.png'))
         else:
             self.sender().setIcon(qt.QIcon('./Icones/hdd.png'))
-
-
+            self.formatH5.removeDataFromRam(int(index))
 
 
     def _updatePcInfo(self):
@@ -474,7 +489,6 @@ class MainWidget(qt.QWidget):
             msg.exec_()
             return 0
 
-
         self.dicPar['data_type'] = tiff_file.dtype
         tiff_file.close()
 
@@ -484,21 +498,17 @@ class MainWidget(qt.QWidget):
         self.loader.show()
 
 
-
-
     def loadHDF5(self,pathFile,pathData,hdf):
 
         self.dicPar = {}
-        self.dicPar['name'] = os.path.basename(hdf.attrs['file_name'])
+        self.dicPar['name'] = os.path.basename( pathFile[0])
         self.dicPar['format'] = 'hdf5'
-        self.dicPar['path_original_source_file'] = hdf.attrs['file_name']
         self.dicPar['path_current_source_file'] = pathFile[0]
         self.dicPar['path_data'] = [pathData]
         self.dicPar['flag_streaming'] = True
         self.dicPar['shape_image'] = hdf[pathData].shape
         self.dicPar['data_type'] = hdf[pathData].dtype
         self.dicPar['local'] = False
-
         self.loader = LoadingDataW(self.dicPar['shape_image'],self.dicPar['data_type'],self.dicPar['name'],self.dicPar['path_current_source_file'],self)
         self.loader.validateButton.clicked.connect(self._loadData)
         self.loader.show()
