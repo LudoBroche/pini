@@ -7,12 +7,13 @@ import numpy as np
 from CustomToolBar import CustomToolBar
 from SliderAndLabel import SliderAndLabel
 from CustomGraphicsView import CustomGraphicsView
+import time
 
 
 class SliceVisualizer(qt.QWidget):
     def __init__(self, planeSection, parent=None):
         qt.QWidget.__init__(self, parent)
-
+        self.parent = parent
         self.currentPlaneSection = planeSection
 
         self.scene = qt.QGraphicsScene()
@@ -28,36 +29,46 @@ class SliceVisualizer(qt.QWidget):
         self.setLayout(layout)
 
     def _changeSlice(self):
+
         self.scene.clear()
         if (self.currentPlaneSection == 0):
-            self.slice = self.dataVolume[self.sliceSlider.value(), :, :]
-            self.slice.squeeze()
+            self.slice = np.copy(self.dataVolume[self.sliceSlider.value(), :, :])
 
         elif (self.currentPlaneSection == 1):
-            self.slice = self.dataVolume[:, self.sliceSlider.value(), :]
-            self.slice.squeeze()
+            self.slice = np.copy(self.dataVolume[:, self.sliceSlider.value(), :])
 
         elif (self.currentPlaneSection == 2):
-            self.slice = self.dataVolume[:, :, self.sliceSlider.value()]
-            self.slice.squeeze()
+            self.slice = np.copy(self.dataVolume[:, :, self.sliceSlider.value()])
 
-        self.data = 255 * (self.slice - self.minimumValue) / (self.maximumValue - self.minimumValue)
+        self.slice.squeeze()
+
+        self.maximumValue = self.slice.max()
+        self.minimumValue = self.slice.min()
+
+        self.data = 255.0*((self.slice - self.minimumValue) / (self.maximumValue - self.minimumValue))
+
         self.data[self.data >= 255] = 255
         self.data[self.data <= 0] = 0
         self.data = np.array(self.data, dtype=np.uint8)
-
         self.display_image()
 
-    def _setDataVolume(self, dataVolume, minValue=-1, maxValue=-1):
-        self.dataShape = dataVolume.shape
-        self.dataVolume = dataVolume
 
-        if (minValue != -1) and (maxValue != -1):
-            self.maximumValue = maxValue
-            self.minimumValue = minValue
+    def _setDataVolume(self, h5Prj,index, flagOpen ):
+
+        self.h5Prj = h5Prj
+        if flagOpen:
+            self.h5Prj.openCurrentArchiveRead()
+
+        if h5Prj.archH5[index].attrs["flag_streaming"]:
+            self.dataVolume = self.h5Prj.archH5[f'{index}/data']
+            self.maximumValue = -1
+            self.minimumValue = -1
         else:
+            self.dataVolume = self.h5Prj.dataRam[f'{index}']
             self.maximumValue = self.dataVolume.max()
             self.minimumValue = self.dataVolume.min()
+
+        self.dataShape = self.dataVolume.shape
 
         if (self.currentPlaneSection == 0):
             self.sliceSlider._setRange(0, self.dataShape[0] - 1)
@@ -90,9 +101,9 @@ class Interactor3D(qt.QWidget):
         self.dataRam = None
 
         self.toolBar = CustomToolBar(self)
-        self.axialWidget = SliceVisualizer(0)
-        self.coronalWidget = SliceVisualizer(1)
-        self.sagittalWidget = SliceVisualizer(2)
+        self.axialWidget = SliceVisualizer(0,self)
+        self.coronalWidget = SliceVisualizer(1,self)
+        self.sagittalWidget = SliceVisualizer(2,self)
         self.timeSlider = SliderAndLabel(self)
         self.timeSlider._setRange(0,0)
 
@@ -114,10 +125,9 @@ class Interactor3D(qt.QWidget):
         self.setLayout(layout)
 
     def newDisplay(self,h5Prj,index):
-        self.h5Prj = h5Prj
-        print(index)
-        self.index = f'{int(index):05}'
 
-        self.h5Prj.openCurrentArchive()
-        print(self.h5Prj.archH5[self.index], self.h5Prj.dataRam[self.index])
-        self.h5Prj._closeArchive()
+        self.h5Prj = h5Prj
+        self.index = f'{int(index):05}'
+        self.axialWidget._setDataVolume(self.h5Prj, self.index,1)
+        self.coronalWidget._setDataVolume(self.h5Prj, self.index,0)
+        self.sagittalWidget._setDataVolume(self.h5Prj, self.index,0)

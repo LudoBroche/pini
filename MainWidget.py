@@ -311,7 +311,6 @@ class MainWidget(qt.QWidget):
         self.formatH5 = self.parent.startUpArchive.arch
         self.formatH5.createEmptyImage()
         self.formatH5.populateImage(self.dicPar)
-
         self._imageSelectionUpdateImage()
         self.loader.close()
 
