@@ -627,67 +627,6 @@ class ArchiveHdf5:
             self.archH5[indexh5].create_virtual_dataset("data", vlayout, fillvalue=-1)
 
         self.archH5.close()
-        self.createPyramid(indexh5)
-
-    def createPyramid(self,indexh5):
-
-        self.openCurrentArchiveRead()
-
-        dataSet = self.archH5[f'{indexh5}/data']
-        dataType = dataSet.dtype
-        shapeVol = dataSet.shape
-        pyramid_resolution = []
-        nb_axis = len(shapeVol)
-
-        for ax, shape in enumerate(shapeVol):
-            pyramid_resolution.append([])
-            deltaTime = 1
-            factor = 1
-            while (deltaTime > (1 / 24.0)):
-                pyramid_resolution[ax].append(factor)
-                start = time.time()
-                if ax == 0:
-                    if nb_axis == 2:
-                        tmp = dataSet[::factor, ::factor]
-                    elif nb_axis == 3:
-                        tmp = dataSet[0, ::factor, ::factor]
-                    elif nb_axis == 4:
-                        tmp = dataSet[0, ::factor, ::factor, ::factor]
-                elif ax == 1:
-                    if nb_axis == 2:
-                        tmp = dataSet[::factor, ::factor]
-                    elif nb_axis == 3:
-                        tmp = dataSet[::factor, 0, ::factor]
-                    elif nb_axis == 4:
-                        tmp = dataSet[::factor, 0, ::factor, ::factor]
-                elif ax == 2:
-                    if nb_axis == 3:
-                        tmp = dataSet[::factor, ::factor, 0]
-                    elif nb_axis == 4:
-                        tmp = dataSet[::factor, ::factor, 0, ::factor]
-                elif ax == 3:
-                    tmp = dataSet[::factor, ::factor, ::factor, 0]
-
-                deltaTime = time.time() - start
-                factor *= 4
-        self._closeArchive()
-        self.openCurrentArchive()
-
-        for ax in pyramid_resolution:
-            for res in ax:
-                if res != 1:
-                    new_dataset_name = f'dataX{res}'
-                    list_dataset = list(self.archH5[indexh5].keys())
-                    if not (new_dataset_name in list_dataset):
-                        new_shape = (-(-shapeVol[0]//res),-(-shapeVol[1]//res),-(-shapeVol[2]//res))
-                        path_source_file = self.archH5[indexh5].attrs["path_current_source_file"]
-                        path_data = self.archH5[indexh5]["path_data"][0].decode('UTF-8')
-                        vlayout = h5py.VirtualLayout(shape = new_shape,dtype= dataType)
-                        vsource = h5py.VirtualSource(path_source_file,path_data,shape= shapeVol)
-                        print(new_dataset_name,new_shape,path_data,path_source_file)
-                        vlayout[:,:,:] = vsource[::res,::res,::res]
-                        self.archH5[indexh5].create_virtual_dataset(new_dataset_name,vlayout,fillvalue=-1)
-        self._closeArchive()
 
 if __name__ == "__main__":
 
