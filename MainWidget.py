@@ -1,21 +1,36 @@
-import os.path
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jan 16 17:50:34 2023
 
+@author: broche
+"""
+
+import os.path
 import importQt as qt
-import pyqtgraph as pg
-import copy
 import psutil
 import fabio
 
 from SliceViualizer import Interactor3D
 from VolumeRenderingGUI import VolumeRenderingGUI
 from LoadingDataW import LoadingDataW
+from WidgetImageProcessing import CustomImageProcessingWidget
+
 
 class AlignDelegate(qt.QStyledItemDelegate):
+    """
+    class to modify the QLabel alignment in a table
+    """
+
     def initStyleOption(self, option, index):
         super(AlignDelegate, self).initStyleOption(option, index)
-        option.displayAlignment = qt.Qt.AlignCenter
+        option.display_alignment = qt.Qt.AlignCenter
+
 
 class IconDelegate(qt.QStyledItemDelegate):
+    """
+    class to modify the QIcon alignment in a table
+    """
+
     def initStyleOption(self, option, index):
         super(IconDelegate, self).initStyleOption(option, index)
         if option.features & qt.QStyleOptionViewItem.HasDecoration:
@@ -23,248 +38,302 @@ class IconDelegate(qt.QStyledItemDelegate):
             s.setWidth(option.rect.width())
             option.decorationSize = s
 
+
 class MainWidget(qt.QWidget):
+    """
+    Main Central Widget to the PINI application 
+    """
+
     def __init__(self, parent=None):
         qt.QWidget.__init__(self, parent)
 
-        """ Attributs """
+        """ Attributes """
 
         self.parent = parent
         self.timer = qt.QTimer()
         self.timer.start(1000)
-        self.timer.timeout.connect(self._updatePcInfo)
-        self.buildMainLayout()
+        self._build_ly_main()
 
-    def buildMainLayout(self):
+    def _build_ly_main(self):
 
         """ Widgets Initialisation """
 
-        mainLayout = qt.QGridLayout()
-        tabWidget = qt.QTabWidget()
-        tab3DViewer = qt.QWidget()
-        self.interactor3D = Interactor3D(self)
+        ly_main = qt.QGridLayout()
+        w_tab = qt.QTabWidget()
+        w_volume_viewer = qt.QWidget()
+        w_main_volume_viewer = VolumeRenderingGUI()
+        ly_viewer = qt.QGridLayout()
+        w_right_panel = qt.QWidget()
+        self.w_image_viewer = Interactor3D(self)
+        self.system_info_hdd = qt.QLabel()
+        self.system_info_ram = qt.QLabel()
+        w_left_right_splitter = qt.QSplitter(qt.Qt.Horizontal)
 
-        self._imageSelectionBuildTable()
+        # Testing Will be remove when Image Processing Main Class is implemented
+        par_test = {}
+        par_test['name'] = ''
+        par_test['ImageSelection'] = []
+        par_test['LineEditParameters'] = {}
+        par_test['LineEditParameters']['Names'] = []
+        par_test['LineEditParameters']['initValues'] = []
+        self.w_image_processing = CustomImageProcessingWidget(par_test, self)
+        self.w_image_processing.hide()
+        # ------
 
-        self.systemInfo1 = qt.QLabel()
-        fontSystem =self.systemInfo1.font()
-        fontSystem.setPointSize(10)
-        self.systemInfo1.setFont(fontSystem)
-        self.systemInfo2 = qt.QLabel()
-        fontSystem = self.systemInfo2.font()
-        fontSystem.setPointSize(10)
-        self.systemInfo2.setFont(fontSystem)
-
-        layout3d = qt.QGridLayout()
-        volumeRenderingGUI = VolumeRenderingGUI()
+        """Methods Call """
+        self._build_image_selector()
 
         """Signals"""
-
-        tabWidget.currentChanged.connect(self._tabChanged)
+        w_tab.currentChanged.connect(self._sig_tab_changed)
+        self.timer.timeout.connect(self._sig_generate_pc_info_string)
 
         """Widget Placement"""
+        ly_right_panel = qt.QVBoxLayout()
+        ly_right_panel.addWidget(self.w_image_selector)
+        ly_right_panel.addWidget(self.w_image_processing)
+        ly_right_panel.addWidget(self.system_info_hdd)
+        ly_right_panel.addWidget(self.system_info_ram)
 
-        vButtonLayout = qt.QVBoxLayout()
-        vButtonLayout.addWidget(self.imageSelection)
-        vButtonLayout.addWidget(self.systemInfo1)
-        vButtonLayout.addWidget(self.systemInfo2)
-
-        right_widget = qt.QWidget()
-        right_widget.setLayout(vButtonLayout)
-
-        splitter = qt.QSplitter(qt.Qt.Horizontal)
-        splitter.addWidget(self.interactor3D)
-        splitter.addWidget(right_widget)
+        w_right_panel.setLayout(ly_right_panel)
+        w_left_right_splitter.addWidget(self.w_image_viewer)
+        w_left_right_splitter.addWidget(w_right_panel)
 
         width = qt.QDesktopWidget().screenGeometry().width()
-        splitter.setSizes([width-500,280])
+        w_left_right_splitter.setSizes([width - 500, 280])
 
-        layout3d.addWidget(volumeRenderingGUI)
-        tab3DViewer.setLayout(layout3d)
+        ly_viewer.addWidget(w_main_volume_viewer)
+        w_volume_viewer.setLayout(ly_viewer)
 
-        tabWidget.addTab(splitter, '2D Viewer')
-        tabWidget.addTab(tab3DViewer, '3D Viewer')
+        w_tab.addTab(w_left_right_splitter, '2D Viewer')
+        w_tab.addTab(w_volume_viewer, '3D Viewer')
 
-        mainLayout.addWidget(tabWidget)
-        self.setLayout(mainLayout)
+        ly_main.addWidget(w_tab)
+        self.setLayout(ly_main)
 
+    def _init_system_info(self):
+        """
+        Set font size for system info w_label_image_names
+        :return: 
+        """
+        font_system = self.system_info_hdd.font()
+        font_system.setPointSize(10)
+        self.system_info_hdd.setFont(font_system)
+        self.system_info_ram = qt.QLabel()
+        font_system = self.system_info_ram.font()
+        font_system.setPointSize(10)
+        self.system_info_ram.setFont(font_system)
 
-    def _imageSelectionBuildTable(self):
+    def _sig_generate_pc_info_string(self):
+        """
+        Generate string to display computer info ram / hdd
+        :return: 
+        """
+        path = self.parent.w_setting.parameter['pini_parameters']['home_collection']['path']
+        hdd = psutil.disk_usage(str(path))
 
-        self.imageSelection = qt.QTableWidget(self)
-        self.imageSelection.setRowCount(0)
-        self.imageSelection.setColumnCount(4)
-        self.imageSelection.setShowGrid(False)
-        self.imageSelection.horizontalHeader().hide()
+        if (hdd.total // (2 ** 30)) > 1000:
+            string_space = (f'HDD: {hdd.used // (2 ** 30 * 1000)}/'
+                            f'{hdd.total // (2 ** 30 * 1000)} TiB [{hdd.percent} %]')
 
+        else:
+            string_space = f'HDD: {hdd.used // 2 ** 30}/{hdd.total // 2 ** 30} GiB ( {hdd.percent} % )'
 
-    def _imageSelectionUpdateImage(self):
-        self.parent.startUpArchive.arch.openCurrentArchive()
-        self.formatH5 = self.parent.startUpArchive.arch
-        self.formatH5.openCurrentArchive()
+        mem = psutil.virtual_memory()
+        cpu = psutil.cpu_percent()
 
-        currentRowCount = self.imageSelection.rowCount()
+        if (mem.total // (2 ** 30)) > 1000:
+            string_mem = (f'CPU: {cpu} % | RAM: {mem.used // (2 ** 30 * 1000)}'
+                          f'/{mem.total // (2 ** 30 * 1000)} TiB [{mem.percent} %]')
+        else:
+            string_mem = (f'CPU: {cpu} % | RAM: {mem.used // (2 ** 30)}'
+                          f'/{mem.total // (2 ** 30)} GiB [{mem.percent} %]')
 
-        while len(list(self.formatH5.archH5.keys())) < currentRowCount:
-            self.imageSelection.removeRow(0)
-            currentRowCount = self.imageSelection.rowCount()
+        self.system_info_hdd.setText(string_space)
+        self.system_info_ram.setText(string_mem)
 
+    def _build_image_selector(self):
+        """
+        Initialization of the image selector
+        :return: 
+        """
+        self.w_image_selector = qt.QTableWidget(self)
+        self.w_image_selector.setRowCount(0)
+        self.w_image_selector.setColumnCount(4)
+        self.w_image_selector.setShowGrid(False)
+        self.w_image_selector.horizontalHeader().hide()
 
-        for i, key in  enumerate(list(self.formatH5.archH5.keys())):
-            if i >= currentRowCount:
-                self.imageSelection.insertRow(i)
+    def _populate_table_image_selector(self):
+        """
+        Populate image selector from project data content
+        To Do: Should be moved to separate widget file
+        :return: 
+        """
+        # opening of the project archived
+        self.parent.start_up_archive.arch.open_current_archive()
+        self.h5_archive = self.parent.start_up_archive.arch
+        self.h5_archive.open_current_archive()
 
+        table_row_count = self.w_image_selector.rowCount()
 
-            wRamHdd = qt.QPushButton()
-            wRamHdd.setFlat(True)
-            wRamHdd.setCheckable(True)
-            wRamHdd.setStyleSheet("QPushButton: flat;border: none")
-            wRamHdd.setObjectName(f'{i}')
+        # Remove all already archive image
+        while len(list(self.h5_archive.archi_h5.keys())) < table_row_count:
+            self.w_image_selector.removeRow(0)
+            table_row_count = self.w_image_selector.rowCount()
 
-            self.iconHdd = qt.QIcon('./Icones/hdd.png')
-            self.iconRam = qt.QIcon('./Icones/ram.png')
+        # Populate image into table
+        for i, key in enumerate(list(self.h5_archive.archi_h5.keys())):
+            if i >= table_row_count:
+                self.w_image_selector.insertRow(i)
 
-            if self.formatH5.archH5[f'{key}'].attrs['flag_streaming']:
-                wRamHdd.setIcon(self.iconHdd)
-                wRamHdd.setChecked(False)
+            # Button to switch from ram to live hdf5 view
+            w_button_ram_hdd = qt.QPushButton()
+            w_button_ram_hdd.setFlat(True)
+            w_button_ram_hdd.setCheckable(True)
+            w_button_ram_hdd.setStyleSheet("QPushButton: flat;border: none")
+            w_button_ram_hdd.setObjectName(f'{i}')
+            self.icon_hdd = qt.QIcon('./Icones/hdd.png')
+            self.icon_ram = qt.QIcon('./Icones/ram.png')
+
+            # Set the state of button if the image is on streaming mode or not
+            if self.h5_archive.archi_h5[f'{key}'].attrs['flag_streaming']:
+                w_button_ram_hdd.setIcon(self.icon_hdd)
+                w_button_ram_hdd.setChecked(False)
             else:
-                wRamHdd.setIcon(self.iconRam)
-                wRamHdd.setChecked(True)
+                w_button_ram_hdd.setIcon(self.icon_ram)
+                w_button_ram_hdd.setChecked(True)
 
-            self.iconDispayOff = qt.QIcon('./Icones/eye_close.png')
-            self.iconDispayOn = qt.QIcon('./Icones/eye_open.png')
+            # Init button to display image
+            self.icon_display_off = qt.QIcon('./Icones/eye_close.png')
+            self.icon_display_on = qt.QIcon('./Icones/eye_open.png')
 
-            wDisplay = qt.QPushButton()
-            wDisplay.setFlat(True)
-            wDisplay.setCheckable(True)
-            wDisplay.setStyleSheet("QPushButton: flat;border: none")
-            wDisplay.setObjectName(f'{i}')
-            wDisplay.setIcon(qt.QIcon('./Icones/eye_close.png'))
-            wDisplay.setChecked(False)
+            w_display = qt.QPushButton()
+            w_display.setFlat(True)
+            w_display.setCheckable(True)
+            w_display.setStyleSheet("QPushButton: flat;border: none")
+            w_display.setObjectName(f'{i}')
+            w_display.setIcon(qt.QIcon('./Icones/eye_close.png'))
+            w_display.setChecked(False)
 
+            # Init delete Button
+            w_delete_button = qt.QPushButton()
+            w_delete_button.setIcon(qt.QIcon('./Icones/trash.png'))
+            w_delete_button.setFlat(True)
+            w_delete_button.setCheckable(True)
+            w_delete_button.setStyleSheet("QPushButton: flat;border: none")
+            w_delete_button.setObjectName(f'{i}')
 
-            deleteButton = qt.QPushButton()
-            deleteButton.setIcon(qt.QIcon('./Icones/trash.png'))
-            deleteButton.setFlat(True)
-            deleteButton.setCheckable(True)
-            deleteButton.setStyleSheet("QPushButton: flat;border: none")
-            deleteButton.setObjectName(f'{i}')
+            # Init editable label of image
+            w_label_image_name = qt.QLineEdit(self.h5_archive.archi_h5[f'{key}'].attrs['name'])
+            w_label_image_name.setFrame(False)
+            w_label_image_name.editingFinished.connect(self._sig_name_image_changed)
+            w_label_image_name.setObjectName(f'{i}')
 
+            txt = self.h5_archive.display_image_info(key)
+            w_label_image_name.setToolTip(txt)
 
-            label = qt.QLineEdit(self.formatH5.archH5[f'{key}'].attrs['name'])
-            label.setFrame(False)
-            label.editingFinished.connect(self.nameDataSetChange)
-            label.setObjectName(f'{i}')
+            self.w_image_selector.setCellWidget(i, 0, w_label_image_name)
+            self.w_image_selector.setCellWidget(i, 1, w_display)
+            self.w_image_selector.setCellWidget(i, 2, w_button_ram_hdd)
+            self.w_image_selector.setCellWidget(i, 3, w_delete_button)
 
-            txt = self.formatH5.generateInfotxt(key)
-            label.setToolTip(txt)
+            w_display.clicked.connect(self._sig_display_image)
+            w_button_ram_hdd.clicked.connect(self._sig_ram_hdd_button_clicked)
+            w_delete_button.clicked.connect(self._sig_delete_image)
 
-            self.imageSelection.setCellWidget(i,0,label)
-            self.imageSelection.setCellWidget(i, 1, wDisplay)
-            self.imageSelection.setCellWidget(i,2,wRamHdd)
-            self.imageSelection.setCellWidget(i, 3, deleteButton)
+        self.w_image_selector.horizontalHeader().setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
+        self.w_image_selector.horizontalHeader().setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
+        self.w_image_selector.horizontalHeader().setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
+        self.w_image_selector.horizontalHeader().setSectionResizeMode(3, qt.QHeaderView.ResizeToContents)
+        self.h5_archive.close_dataset()
 
-            wDisplay.clicked.connect(self._DisplayData)
-            wRamHdd.clicked.connect(self._ImageSelectionRamHddButtonClicked)
-            deleteButton.clicked.connect(self._ImageSelectionDeleteData)
+        # Update the image processing widget when new image is imported
+        self.w_image_processing.update()
 
-        self.imageSelection.horizontalHeader().setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
-        self.imageSelection.horizontalHeader().setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
-        self.imageSelection.horizontalHeader().setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
-        self.imageSelection.horizontalHeader().setSectionResizeMode(3, qt.QHeaderView.ResizeToContents)
-        self.formatH5._closeArchive()
-
-
-    def nameDataSetChange(self):
-        self.formatH5.openCurrentArchive()
+    def _sig_name_image_changed(self):
+        """
+        Change name of image on line edit editing
+        To Do : Move with _populate_table_image_selector
+        :return: 
+        """
+        self.h5_archive.open_current_archive()
         index = int(self.sender().objectName())
         name = self.sender().text()
-        self.formatH5.archH5[f'{index:05}'].attrs['name'] = name
-        self.formatH5._closeArchive()
-        self._imageSelectionUpdateImage()
+        self.h5_archive.archi_h5[f'{index:05}'].attrs['name'] = name
+        self.h5_archive.close_dataset()
+        self._populate_table_image_selector()
 
-    def _ImageSelectionDeleteData(self):
-        indexDelete = self.sender().objectName()
-        self.formatH5.deleteImage(int(indexDelete))
-        self._imageSelectionUpdateImage()
+    def _sig_delete_image(self):
+        """
+        Remove Image From project and update image selector
+        To Do : Move with _populate_table_image_selector
+        :return: 
+        """
+        pos_deletion = self.sender().objectName()
+        self.h5_archive.delete_image(int(pos_deletion))
+        self._populate_table_image_selector()
 
-    def _DisplayData(self):
+    def _sig_display_image(self):
+        """
+        Call image viewer for new display
+        To Do : Move with _populate_table_image_selector
+        :return: 
+        """
         index = self.sender().objectName()
         if self.sender().isChecked():
-            self.sender().setIcon(self.iconDispayOn)
-            for i in range(0,self.imageSelection.rowCount()):
-                w = self.imageSelection.cellWidget(i,1)
+            self.sender().setIcon(self.icon_display_on)
+            for i in range(0, self.w_image_selector.rowCount()):
+                w = self.w_image_selector.cellWidget(i, 1)
                 if w.objectName() != index:
                     w.setChecked(False)
-                    w.setIcon(self.iconDispayOff)
-
-            self.interactor3D.newDisplay(self.formatH5,index)
+                    w.setIcon(self.icon_display_off)
+            self.w_image_viewer.launch_display(self.h5_archive, index)
 
         else:
-            self.sender().setIcon(self.iconDispayOff)
+            self.sender().setIcon(self.icon_display_off)
 
-
-    def _ImageSelectionRamHddButtonClicked(self):
+    def _sig_ram_hdd_button_clicked(self):
+        """
+        Change from hdf5 streaming to ram or vise versa
+        To Do : Move with _populate_table_image_selector
+        :return: 
+        """
         index = self.sender().objectName()
         if self.sender().isChecked():
-            self.sender().setIcon(self.iconRam)
-            error = self.formatH5.loadDataToRam(int(index))
+            self.sender().setIcon(self.icon_ram)
+            error = self.h5_archive.loadDataToRam(int(index))
             if not error:
                 self.sender().setChecked(False)
-                self.sender().setIcon(self.iconHdd)
+                self.sender().setIcon(self.icon_hdd)
         else:
-            self.sender().setIcon(self.iconHdd)
-            self.formatH5.removeDataFromRam(int(index))
+            self.sender().setIcon(self.icon_hdd)
+            self.h5_archive.free_ram(int(index))
 
+    def import_tiff_sequence(self, path_tiff_sequence):
+        """
+        Initialize tiff sequence import 
+        To Do: Move to a new import python file
+        :param path_tiff_sequence: list of all files to import
+        :return: 
+        """
 
-    def _updatePcInfo(self):
-            path = self.parent.setting.parameter['pini_parameters']['home_collection']['path']
-            hdd = psutil.disk_usage(str(path))
+        path_tiff_sequence.sort()
+        path_first_tiff = path_tiff_sequence[0]
+        tiff_file = fabio.open(path_first_tiff)
 
-            if (hdd.total // (2 ** 30)) > 1000:
-                string_space = f'HDD: {hdd.used//(2 ** 30 * 1000)}/{ hdd.total // (2 ** 30 * 1000)} TiB [{hdd.percent} %]'
+        self.par_dataset = {}
+        self.par_dataset['name'] = os.path.basename(path_tiff_sequence[0])
+        self.par_dataset['format'] = 'tiff'
+        self.par_dataset['path_original_source_file'] = os.path.dirname(path_tiff_sequence[0])
+        self.par_dataset['path_current_source_file'] = os.path.dirname(path_tiff_sequence[0])
 
-            else:
-                string_space = f'HDD: {hdd.used//2 ** 30}/{hdd.total // 2 ** 30} GiB ( {hdd.percent} % )'
+        self.par_dataset['path_data'] = path_tiff_sequence
+        self.par_dataset['flag_streaming'] = True
+        self.par_dataset['local'] = False
 
-            mem = psutil.virtual_memory()
-            cpu = psutil.cpu_percent()
-
-            if (mem.total // (2**30)) > 1000:
-                string_mem = f'CPU: {cpu} % | RAM: {mem.used//(2 ** 30 * 1000)}/{mem.total // (2 ** 30 * 1000)} TiB [{mem.percent} %]'
-            else:
-                string_mem = f'CPU: {cpu} % | RAM: {mem.used // (2 ** 30)}/{mem.total // (2 ** 30)} GiB [{mem.percent} %]'
-
-            self.systemInfo1.setText(string_space)
-            self.systemInfo2.setText(string_mem)
-
-    def _tabChanged(self, tabIndex):
-        if tabIndex == 1:
-            self.volumeRenderingGUI.ImagesList = self.Name_list
-            self.volumeRenderingGUI.setImages()
-            self.volumeRenderingGUI.DataList = self.Data_list
-            self.volumeRenderingGUI.ItemLists = self.Items_list
-
-    def loadImageSequence(self,filenames):
-
-        filenames.sort()
-        imageSamplePath = filenames[0]
-        tiff_file = fabio.open(imageSamplePath)
-
-        self.dicPar = {}
-        self.dicPar['name'] = os.path.basename(filenames[0])
-        self.dicPar['format'] = 'tiff'
-        self.dicPar['path_original_source_file'] = os.path.dirname(filenames[0])
-        self.dicPar['path_current_source_file'] = os.path.dirname(filenames[0])
-
-        self.dicPar['path_data'] = filenames
-        self.dicPar['flag_streaming'] = True
-        self.dicPar['local'] = False
-
-        if len(filenames) > 1:
-            self.dicPar['shape_image'] = (tiff_file.shape[0],tiff_file.shape[1],len(filenames))
-        elif len(filenames) == 1:
-            self.dicPar['shape_image'] = (tiff_file.shape[0], tiff_file.shape[1])
+        if len(path_tiff_sequence) > 1:
+            self.par_dataset['shape_image'] = (tiff_file.shape[0], tiff_file.shape[1], len(path_tiff_sequence))
+        elif len(path_tiff_sequence) == 1:
+            self.par_dataset['shape_image'] = (tiff_file.shape[0], tiff_file.shape[1])
         else:
             msg = qt.QMessageBox()
             msg.setIcon(qt.QMessageBox.Critical)
@@ -274,45 +343,66 @@ class MainWidget(qt.QWidget):
             msg.exec_()
             return 0
 
-        self.dicPar['data_type'] = tiff_file.dtype
+        self.par_dataset['data_type'] = tiff_file.dtype
         tiff_file.close()
 
-        self.loader = LoadingDataW(self.dicPar['shape_image'], self.dicPar['data_type'], self.dicPar['name'],
-                                   self.dicPar['path_current_source_file'], self)
-        self.loader.validateButton.clicked.connect(self._loadData)
+        self.loader = LoadingDataW(self.par_dataset['shape_image'], self.par_dataset['data_type'],
+                                   self.par_dataset['name'],
+                                   self.par_dataset['path_current_source_file'], self)
+        self.loader.validateButton.clicked.connect(self._sig_add_image_to_archive)
         self.loader.show()
 
-
-    def loadHDF5(self,pathFile,pathData,hdf):
-
-        self.dicPar = {}
-        self.dicPar['name'] = os.path.basename( pathFile[0])
-        self.dicPar['format'] = 'hdf5'
-        self.dicPar['path_current_source_file'] = pathFile[0]
-        self.dicPar['path_data'] = [pathData]
-        self.dicPar['flag_streaming'] = True
-        self.dicPar['shape_image'] = hdf[pathData].shape
-        self.dicPar['data_type'] = hdf[pathData].dtype
-        self.dicPar['local'] = False
-        self.loader = LoadingDataW(self.dicPar['shape_image'],self.dicPar['data_type'],self.dicPar['name'],self.dicPar['path_current_source_file'],self)
-        self.loader.validateButton.clicked.connect(self._loadData)
+    def import_hdf5(self, path_hdf5_file, hdf5_path_image, ob_hdf5):
+        """
+        Initialize hdf5 sequence import 
+        To Do: Move to a new import python file
+        :param path_hdf5_file: Path to the hdf5 file
+        :param hdf5_path_image: Internal path to the hdf5 image data
+        :param ob_hdf5: Hdf5 file from h5py 
+        :return: 
+        """
+        self.par_dataset = {}
+        self.par_dataset['name'] = os.path.basename(path_hdf5_file[0])
+        self.par_dataset['format'] = 'hdf5'
+        self.par_dataset['path_current_source_file'] = path_hdf5_file[0]
+        self.par_dataset['path_data'] = [hdf5_path_image]
+        self.par_dataset['flag_streaming'] = True
+        self.par_dataset['shape_image'] = ob_hdf5[hdf5_path_image].shape
+        self.par_dataset['data_type'] = ob_hdf5[hdf5_path_image].dtype
+        self.par_dataset['local'] = False
+        self.loader = LoadingDataW(self.par_dataset['shape_image'], self.par_dataset['data_type'],
+                                   self.par_dataset['name'], self.par_dataset['path_current_source_file'], self)
+        self.loader.validateButton.clicked.connect(self._sig_add_image_to_archive)
         self.loader.show()
 
-
-    def _loadData(self):
-
-        self.dicPar['name'] = self.loader.nameImage
-        self.dicPar['axes'] = self.loader.returnAxesInfo()
-        self.dicPar['units'] = self.loader.returnUnitsInfo()
-        self.dicPar['pixel_size'] = self.loader.returnPixelsInfo()
+    def _sig_add_image_to_archive(self):
+        """
+        Fill up parameter dictionary with meta data and call archive image populate
+        :return:
+        """
+        self.par_dataset['name'] = self.loader.nameImage
+        self.par_dataset['axes'] = self.loader.returnAxesInfo()
+        self.par_dataset['units'] = self.loader.returnUnitsInfo()
+        self.par_dataset['pixel_size'] = self.loader.returnPixelsInfo()
 
         """Data Dictionary"""
-        self.parent.startUpArchive.arch.openCurrentArchive()
-        self.formatH5 = self.parent.startUpArchive.arch
-        self.formatH5.createEmptyImage()
-        self.formatH5.populateImage(self.dicPar)
-        self._imageSelectionUpdateImage()
+        self.parent.start_up_archive.arch.open_current_archive()
+        self.h5_archive = self.parent.start_up_archive.arch
+        self.h5_archive.createEmptyImage()
+        self.h5_archive.populateImage(self.par_dataset)
+        self._populate_table_image_selector()
         self.loader.close()
 
-
-
+    def _sig_tab_changed(self):
+        """
+        Init Volume Rendering Widget when switch to the volume tab
+        To Do: Not Fully Implemented
+        :return:
+        """
+        """
+        if tabIndex == 1:
+            self.w_main_volume_viewer.ImagesList = self.Name_list
+            self.w_main_volume_viewer.setImages()
+            self.w_main_volume_viewer.DataList = self.Data_list
+            self.w_main_volume_viewer.ItemLists = self.Items_list
+        """

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import matplotlib.pyplot as plt
 #####------------------------------------
 import time
 import importQt as qt
@@ -8,9 +7,6 @@ import numpy as np
 from CustomToolBar import CustomToolBar
 from SliderAndLabel import SliderAndLabel
 from CustomGraphicsView import CustomGraphicsView
-
-from skimage.transform import resize
-import threading
 
 
 class H5Reader(qt.QObject):
@@ -211,15 +207,15 @@ class SliceVisualizer(qt.QWidget):
 
 
 
-    def _setDataVolume(self, h5Prj,index, flagOpen ):
-        self.h5Prj = h5Prj
+    def _setDataVolume(self, archi_h5,index, flagOpen ):
+        self.archi_h5 = archi_h5
         if flagOpen:
-            self.h5Prj.openCurrentArchiveRead()
+            self.archi_h5.open_current_archive()
 
-        if self.h5Prj.archH5[index].attrs["flag_streaming"]:
-            self.dataVolume = self.h5Prj.archH5[f'{index}/data']
+        if self.archi_h5.archi_h5[index].attrs["flag_streaming"]:
+            self.dataVolume = self.archi_h5.archi_h5[f'{index}/data']
         else:
-            self.dataVolume = self.h5Prj.dataRam[f'{index}']
+            self.dataVolume = self.archi_h5.dataRam[f'{index}']
 
         dataShape = self.dataVolume.shape
 
@@ -323,13 +319,13 @@ class Interactor3D(qt.QWidget):
         layout.addWidget(self.timeSlider)
         self.setLayout(layout)
 
-    def newDisplay(self,h5Prj,index):
+    def launch_display(self,archi_h5,index):
 
-        self.h5Prj = h5Prj
+        self.archi_h5 = archi_h5
         self.index = f'{int(index):05}'
-        self.axialWidget._setDataVolume(self.h5Prj, self.index,1)
-        self.coronalWidget._setDataVolume(self.h5Prj, self.index,0)
-        self.sagittalWidget._setDataVolume(self.h5Prj, self.index,0)
+        self.axialWidget._setDataVolume(self.archi_h5, self.index,1)
+        self.coronalWidget._setDataVolume(self.archi_h5, self.index,0)
+        self.sagittalWidget._setDataVolume(self.archi_h5, self.index,0)
         self.axialWidget.threadLoadNewResolution()
         self.coronalWidget.threadLoadNewResolution()
         self.sagittalWidget.threadLoadNewResolution()

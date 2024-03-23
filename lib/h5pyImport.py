@@ -468,7 +468,7 @@ class HDF5Importer(qt.QMainWindow):
         if hdf5widget != None:
             pathData = hdf5widget.export_data()
             hdf = hdf5widget.hdf
-            self.app.mainWidget.loadHDF5(pathFile, pathData,hdf)
+            self.app.w_main.import_hdf5(pathFile, pathData,hdf)
             self.close()
         else:
             qt.QMessageBox.information(None, "", "Select a valid Dataset")
