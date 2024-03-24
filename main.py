@@ -4,7 +4,7 @@ Created on Mon Jan 16 17:50:34 2023
 @author: broche
 """
 
-import importQt as qt
+import importQt as Qt
 import sys
 
 from MainWidget import MainWidget
@@ -13,7 +13,7 @@ from lib import h5pyImport
 from FileFormatArchive import StartUpArchive
 
 
-class MainWindow(qt.QMainWindow):
+class MainWindow(Qt.QMainWindow):
     """
     Main PINI Window Define All functions from menus bar and import main widget
     """
@@ -37,7 +37,7 @@ class MainWindow(qt.QMainWindow):
         
         # File Menu Project Management Import Export of Data
         file_menu = menu_bar.addMenu('&File')
-        project_menu = qt.QAction('&Open Project',self)
+        project_menu = Qt.QAction('&Open Project',self)
         project_menu.triggered.connect(self._launchProjectWin)
         file_menu.addAction(project_menu)
 
@@ -46,35 +46,35 @@ class MainWindow(qt.QMainWindow):
         export_menu = file_menu.addMenu('&Export Data')
 
         # Import Data
-        import_tiff = qt.QAction('Images &Sequence', self)
+        import_tiff = Qt.QAction('Images &Sequence', self)
         import_tiff.triggered.connect(self._importSequenceImages)
         import_menu.addAction(import_tiff)
 
-        import_h5 = qt.QAction('&HDF5', self)
+        import_h5 = Qt.QAction('&HDF5', self)
         import_h5.triggered.connect(self._importHDF5)
         import_menu.addAction(import_h5)
 
         # Export Data Tiff
-        export_tiff = qt.QAction('Images &Sequence', self)
+        export_tiff = Qt.QAction('Images &Sequence', self)
         #TO DO 
         #export_tiff.triggered.connect(self.w_main._export_tiff) 
         export_menu.addAction(export_tiff)
 
         # Export Data NX
-        export_nx = qt.QAction('&HDF5/NX', self)
+        export_nx = Qt.QAction('&HDF5/NX', self)
         #TO DO 
         #export_tiff.triggered.connect(self.w_main._export_tiff)
         export_menu.addAction(export_nx)
         
         # Setting Parameters 
-        parameters = qt.QAction('Settings', self)
+        parameters = Qt.QAction('Settings', self)
         parameters.triggered.connect(self._parametersGUI)
         file_menu.addAction(parameters)
 
         # Processing Menu 
         processing_menu = menu_bar.addMenu('&Processing')
         filter_menu = processing_menu.addMenu('Filters')
-        gaussian_filter = qt.QAction('Gaussian',self)
+        gaussian_filter = Qt.QAction('Gaussian',self)
         gaussian_filter.triggered.connect(self._imageProcessing)
         filter_menu.addAction(gaussian_filter)
 
@@ -92,11 +92,11 @@ class MainWindow(qt.QMainWindow):
         TO DO : should be moved somewhere else
         :return: 
         """
-        dialog = qt.QFileDialog()
-        dialog.setWindowIcon(qt.QIcon('./Icones/transp.png'))
+        dialog = Qt.QFileDialog()
+        dialog.setWindowIcon(Qt.QIcon('./Icones/transp.png'))
         dialog.setNameFilter("Images (*.tiff *.tif)")
-        dialog.setViewMode(qt.QFileDialog.Detail)
-        dialog.setFileMode(qt.QFileDialog.FileMode.ExistingFiles)
+        dialog.setViewMode(Qt.QFileDialog.Detail)
+        dialog.setFileMode(Qt.QFileDialog.FileMode.ExistingFiles)
         dialog.setDirectory("")
         if dialog.exec():
             path_tiff_sequence = dialog.selectedFiles()
@@ -121,25 +121,25 @@ class MainWindow(qt.QMainWindow):
         To Do: Change flash Splash to a non random image
         :return: 
         """
-        self.splash = qt.QSplashScreen(qt.QPixmap("Icones/pini_splash.png"))
+        self.splash = Qt.QSplashScreen(Qt.QPixmap("Icones/pini_splash.png"))
         self.splash.show()
 
         # Close SplashScreen after 2 seconds (2000 ms)
-        screen = qt.QGuiApplication.primaryScreen()
+        screen = Qt.QGuiApplication.primaryScreen()
         geo = screen.geometry()
         height = geo.height()
         width = geo.width()
         self.splash.move(int((width/4)-(541/2)),int((height/2)-(686/2)))
-        qt.QTimer.singleShot(2000, self.splash.close)
+        Qt.QTimer.singleShot(2000, self.splash.close)
 
     def _imageProcessing(self):
         print(gaussian_filter.objectName())
 
 
 if __name__ == "__main__":
-    app = qt.QApplication(["-display"])
+    app = Qt.QApplication(["-display"])
     m = MainWindow()
-    m.setWindowIcon(qt.QIcon("Icones/pini.png"))
+    m.setWindowIcon(Qt.QIcon("Icones/pini.png"))
     m.showMaximized()
     m.show()
     m.display_flash_splash()

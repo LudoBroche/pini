@@ -210,7 +210,7 @@ class SliceVisualizer(qt.QWidget):
     def _setDataVolume(self, archi_h5,index, flagOpen ):
         self.archi_h5 = archi_h5
         if flagOpen:
-            self.archi_h5.open_current_archive()
+            self.archi_h5.open_current_dataset()
 
         if self.archi_h5.archi_h5[index].attrs["flag_streaming"]:
             self.dataVolume = self.archi_h5.archi_h5[f'{index}/data']
