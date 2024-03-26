@@ -1,4 +1,4 @@
-import importQt as qt
+import importQt as Qt
 import xmltodict
 from pathlib import Path
 import glob
@@ -6,11 +6,12 @@ import psutil
 import importlib.util
 import ast
 
-
-
 from LabelEditAndButton import LabelEditAndButton
 
-class SettingWidget(qt.QMainWindow):
+class SettingWidget(Qt.QMainWindow):
+    """
+    QMain Window to display all setting of Pini for now only needed libraries are integrated
+    """
 
     def __init__(self, parent=None,):
         super(SettingWidget, self).__init__(parent)
@@ -20,12 +21,12 @@ class SettingWidget(qt.QMainWindow):
         self.path_xml = Path('./config.xml')
 
         """ Tabs Widgets Init"""
-        self.tabWidget = qt.QTabWidget()
-        self.pythonLibrary = qt.QWidget()
-        self.mainSettings = qt.QWidget()
+        self.tabWidget = Qt.QtabWidget()
+        self.pythonLibrary = Qt.QWidget()
+        self.mainSettings = Qt.QWidget()
         """Tabs Layout Init"""
-        self.layoutMainSettings = qt.QGridLayout()
-        self.layoutPythonLibrary = qt.QGridLayout()
+        self.layoutMainSettings = Qt.QGridLayout()
+        self.layoutPythonLibrary = Qt.QGridLayout()
         """Main Settings Widgets Init"""
 
         self.PathTmpFilesSave = LabelEditAndButton(boolLabel = True, textLabel = "Path Temporary Collection",
@@ -33,10 +34,10 @@ class SettingWidget(qt.QMainWindow):
                                                    boolButton = True, textButton="Browse")
 
         self.PathTmpFilesSave.lineEdit.setFixedWidth(500)
-        self.labelInfo = qt.QLabel()
-        self.saveButton = qt.QPushButton('Save')
+        self.labelInfo = Qt.QLabel()
+        self.saveButton = Qt.QPushButton('Save')
 
-        self.tableLibrary = qt.QTableWidget()
+        self.tableLibrary = Qt.QtableWidget()
 
         """Signals"""
         self.PathTmpFilesSave.button.clicked.connect(self._chooseHomeDirectory)
@@ -65,6 +66,10 @@ class SettingWidget(qt.QMainWindow):
         self._buildTable()
 
     def _buildTable(self):
+        """
+        Method to build the table of all libraries required
+        :return:
+        """
         self.tableLibrary.setColumnCount(2)
         self.tableLibrary.verticalHeader().setVisible(False)
         self.tableLibrary.horizontalHeader().setVisible(False)
@@ -79,19 +84,23 @@ class SettingWidget(qt.QMainWindow):
 
         self.tableLibrary.setRowCount(len(list_library))
         for i, lib in enumerate(list_library):
-            self.tableLibrary.setItem(i, 0, qt.QTableWidgetItem(lib))
+            self.tableLibrary.setItem(i, 0, Qt.QtableWidgetItem(lib))
             test_lib = importlib.util.find_spec(lib)
             if test_lib == None:
-                self.tableLibrary.setItem(i , 1, qt.QTableWidgetItem("Not Installed"))
+                self.tableLibrary.setItem(i , 1, Qt.QtableWidgetItem("Not Installed"))
                 list_Install[i] = 0
             else:
-                self.tableLibrary.setItem(i , 1, qt.QTableWidgetItem("Installed"))
+                self.tableLibrary.setItem(i , 1, Qt.QtableWidgetItem("Installed"))
                 list_Install[i] = 1
 
         self.parameter['pini_parameters']['library']['install'] = str(list_Install)
 
 
     def _checkFolder(self):
+        """
+        Method to check available space in the current project folder
+        :return:
+        """
         path = Path(self.PathTmpFilesSave.valueLineEdit())
         if path.exists():
 
@@ -123,10 +132,18 @@ class SettingWidget(qt.QMainWindow):
             self.labelInfo.setText('Warning: Directory does not exist!')
 
     def _chooseHomeDirectory(self):
-        filePath = qt.QFileDialog.getExistingDirectory(self,'Select Folder')
+        """
+        Setting to change the path of the projects directories
+        :return:
+        """
+        filePath = Qt.QFileDialog.getExistingDirectory(self,'Select Folder')
         self.PathTmpFilesSave.changeLineEdit(str(Path(filePath)))
 
     def _saveParameters(self):
+        """
+        Method call on save button pressed save the parameters into the xml parameters files
+        :return:
+        """
         path = self.PathTmpFilesSave.valueLineEdit()
         self.parameter['pini_parameters']['home_collection']['path'] = str(Path(path))
         with open(self.path_xml, 'w') as result_file:
@@ -142,9 +159,17 @@ class SettingWidget(qt.QMainWindow):
 
 
     def _loadConfigFile(self):
+        """
+        import xml into a python dictionary
+        :return:
+        """
         with open(self.path_xml) as fd:
             doc = xmltodict.parse(fd.read())
         self.parameter = doc
 
     def _updateWidget(self):
+        """
+        Update string to current project directory
+        :return:
+        """
         self.PathTmpFilesSave.changeLineEdit(str(Path(self.parameter['pini_parameters']['home_collection']['path'])))

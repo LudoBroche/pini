@@ -1,3 +1,9 @@
+"""
+Created on Mon Jan 16 17:50:34 2023
+
+@author: broche
+"""
+
 import os
 import h5py
 from pathlib import Path
@@ -14,6 +20,9 @@ import random
 
 
 class AlignDelegate(Qt.QStyledItemDelegate):
+    """
+    class to modify the QLabel alignment in a table
+    """
     def initStyleOption(self, option, index, **kwargs):
         super(AlignDelegate, self).initStyleOption(option, index)
         option.displayAlignment = Qt.Qt.AlignCenter
@@ -35,6 +44,10 @@ class StartUpArchive(Qt.QMainWindow):
         self._start_up_message_box()
 
     def _check_permission_directory(self):
+        """
+        Method to test permission to write in the current project folder
+        :return:
+        """
         self._import_config_file()
         self.pathFolderArchive = Path(self.parameter['pini_parameters']['home_collection']['path'])
         self._check_dataset()
@@ -49,6 +62,10 @@ class StartUpArchive(Qt.QMainWindow):
             self.flag_writeable = False
 
     def _start_up_message_box(self):
+        """
+        Message Box when launching project window to ask if current project should be loaded
+        :return:
+        """
         if self.flag_writeable:
             if len(self.list_h5_archive) != 0:
                 qm = Qt.QMessageBox()
@@ -80,11 +97,19 @@ class StartUpArchive(Qt.QMainWindow):
             self.parent.setting.show()
 
     def _import_config_file(self):
+        """
+        Import
+        :return:
+        """
         with open(self.path_xml) as fd:
             doc = xmltodict.parse(fd.read())
         self.parameter = doc
 
     def _build_dataset_widget(self):
+        """
+        Method to build the main interface of the project widget and populate archive with all current projects
+        :return:
+        """
 
         self._check_dataset()
 
@@ -194,12 +219,20 @@ class StartUpArchive(Qt.QMainWindow):
         self.show()
 
     def _sig_name_dataset_changed(self):
+        """
+        Changing project name on the line edit
+        :return:
+        """
         index = int(self.sender().objectName())
         ob_h5 = self.list_h5_archive[index]
         with h5py.File(ob_h5, 'a') as h5:
             h5.attrs['project_name'] = self.sender().text()
 
     def _sig_delete_changed(self):
+        """
+        delete project after push button call
+        :return:
+        """
         if self.sender().isChecked():
             id_import = self.sender().objectName()
             box_import = self.list_item_load[int(id_import)]
@@ -224,6 +257,10 @@ class StartUpArchive(Qt.QMainWindow):
                 dataset.setEnabled(True)
 
     def _sig_import_changed(self):
+        """
+        Make sure only one import is possible when check box is validated
+        :return:
+        """
         if self.sender().isChecked():
             self.importButton.setDisabled(False)
             id_import = self.sender().objectName()
@@ -249,11 +286,19 @@ class StartUpArchive(Qt.QMainWindow):
                 self.importButton.setDisabled(True)
 
     def _check_dataset(self):
+        """
+        Read all current projects in the project folder
+        :return:
+        """
         self.list_h5_archive = glob.glob(str(self.pathFolderArchive) + '/pini*.h5')
         self.list_h5_archive.sort()
         self.list_h5_archive = self.list_h5_archive[::-1]
 
     def _create_dataset(self):
+        """
+        Create a New dataset/project when push button is clicked
+        :return:
+        """
         self.dataset = ArchiveHdf5()
         self.dataset.clean_up_lock_file()
         self.dataset.create_new_dataset()
@@ -261,7 +306,11 @@ class StartUpArchive(Qt.QMainWindow):
         self._build_dataset_widget()
 
     def _import_dataset(self):
-
+        """
+        Importing new project after import is clicked check project version is compatible with current version of the
+        software
+        :return:
+        """
         path_to_open = None
         for i, box in enumerate(self.list_item_load):
             if box.isChecked():
@@ -305,7 +354,10 @@ class StartUpArchive(Qt.QMainWindow):
             self.parent.w_main.populate_table_image_selector()
 
     def _delete_dataset(self):
-
+        """
+        Erase project from dataset
+        :return:
+        """
         for i, box in enumerate(self.list_item_delete):
             if box.isChecked():
                 os.remove(self.list_h5_archive[i])
@@ -313,6 +365,12 @@ class StartUpArchive(Qt.QMainWindow):
         self._build_dataset_widget()
 
     def closeEvent(self, event, **kwargs):
+        """
+        If the project window is closed display a message box to inform the user of the creation of new dataset
+        :param event:
+        :param kwargs:
+        :return:
+        """
         if self.dataset is None:
             self.dataset = ArchiveHdf5()
             self.dataset.clean_up_lock_file()
@@ -332,6 +390,9 @@ class StartUpArchive(Qt.QMainWindow):
 
 
 class ArchiveHdf5:
+    """
+    Class that handle the management of project. Create new project/ populate project ...
+    """
     def __init__(self):
         self.path_xml = Path('./config.xml')
         self.path_dataset = ''
@@ -340,12 +401,20 @@ class ArchiveHdf5:
         self.dataRam = {}
 
     def _import_config_file(self):
+        """
+        Import config file that contain information about project path
+        :return:
+        """
         with open(self.path_xml) as fd:
             doc = xmltodict.parse(fd.read())
         self.parameter = doc
         self.pathFolderArchive = Path(self.parameter['pini_parameters']['home_collection']['path'])
 
     def create_new_dataset(self):
+        """
+        Creation of a new project with all the necessary metadata
+        :return:
+        """
         date = datetime.now()
         current_date = str(date).split('.')[0]
         current_date = '_'.join(current_date.split(' '))
@@ -366,27 +435,49 @@ class ArchiveHdf5:
         self.close_dataset()
 
     def update_streaming_flags(self):
+        """
+        Change streaming mode to True to display images through streaming hdf5 instead of directly from ram
+        :return:
+        """
         self.open_current_dataset()
         for key in self.archi_h5.keys():
             self.archi_h5[key].attrs["flag_streaming"] = True
         self.close_dataset()
 
     def generate_lock_file(self):
+        """
+        Generate a lock file to make sure h5 is not reopen while already open
+        :return:
+        """
         lock_file = os.path.splitext(self.path_dataset)[0] + '.lock'
         f = open(lock_file, 'w')
         f.close()
 
     def remove_lock_file(self):
+        """
+        On h5 closure, remove the lock file
+        :return:
+        """
         lock_file = os.path.splitext(self.path_dataset)[0] + '.lock'
         if os.path.exists(lock_file):
             os.remove(lock_file)
 
-    def clean_up_lock_file(self):
+    def clean_up_lock_files(self):
+        """
+        Remove all lock files should not be called usefull untill management
+        of abrupt closing is not integrated
+        :return:
+        """
         list_lock = glob.glob(str(self.pathFolderArchive) + '/*.lock')
         for lock in list_lock:
             os.remove(lock)
 
     def open_dataset(self, path_dataset):
+        """
+        Open a project
+        :param path_dataset: path inside the hdf5 to reach the data
+        :return:
+        """
         self.dataRam = {}
         self.path_dataset = Path(path_dataset)
         self.archi_h5 = h5py.File(self.path_dataset, 'a')
@@ -395,19 +486,36 @@ class ArchiveHdf5:
         self.generate_lock_file()
 
     def open_current_dataset(self):
+        """
+        Open a project with the current path
+        Generate lock files
+        """
         self.archi_h5 = h5py.File(self.path_dataset, 'a')
         self.generate_lock_file()
 
     def open_current_dataset_read_only(self):
+        """
+        Open a project on read only mode
+        Generate lock files
+        :return:
+        """
         self.archi_h5 = h5py.File(self.path_dataset, 'r')
         self.generate_lock_file()
 
     def close_dataset(self):
+        """
+        Close dataset/ remove lock file
+        :return:
+        """
         self.archi_h5.flush()
         self.archi_h5.close()
         self.remove_lock_file()
 
     def remove_all_datasets(self):
+        """
+        Remove all datasets in archive
+        :return:
+        """
         if self.archi_h5 is not None:
             self.close_dataset()
         self._import_config_file()
@@ -416,6 +524,10 @@ class ArchiveHdf5:
             os.remove(h5files)
 
     def generate_empty_image(self):
+        """
+        Initialize a new image
+        :return:
+        """
         index_list = [int(k) for k in list(self.archi_h5.keys())]
         if len(index_list) == 0:
             index = '0'.zfill(5)
@@ -446,6 +558,11 @@ class ArchiveHdf5:
         self.close_dataset()
 
     def display_image_info(self, indexh5):
+        """
+        Create string to display all the image info
+        :param indexh5: index of dataset to display
+        :return:
+        """
         self.open_current_dataset()
         txt = ''
 
@@ -482,6 +599,11 @@ class ArchiveHdf5:
         return txt
 
     def load_image_to_ram(self, loading_index):
+        """
+        Load image into ram instead of streaming
+        :param loading_index:
+        :return:
+        """
         self.open_current_dataset()
         indexh5 = str(loading_index).zfill(5)
 
@@ -508,6 +630,11 @@ class ArchiveHdf5:
         return 1
 
     def free_ram(self, delete_index):
+        """
+        Remove image from ram
+        :param delete_index:
+        :return:
+        """
         self.open_current_dataset()
         indexh5 = str(delete_index).zfill(5)
         self.archi_h5[f'{indexh5}'].attrs['flag_streaming'] = True
@@ -518,6 +645,12 @@ class ArchiveHdf5:
         self.dataRam[indexh5] = []
 
     def delete_image(self, index_delete):
+        """
+         Remove image from archive
+         Need to create a tmp file to remove a dataset from hdf5. (ie copy without the deleted data)
+        :param index_delete:
+        :return:
+        """
         self.open_current_dataset()
         indexh5 = str(index_delete).zfill(5)
         if self.archi_h5[f'{indexh5}'].attrs['local']:
@@ -550,11 +683,19 @@ class ArchiveHdf5:
         self.dataRam = dictmp
 
     def _update_tmp_file(self):
+        """
+        Change tmp file to final file
+        :return:
+        """
         os.remove(self.path_dataset)
         os.rename('./tmp.h5', self.path_dataset)
 
     def populate_image(self, par_dataset):
-
+        """
+        Insert data into the empty image with all the necessary metada
+        :param par_dataset:
+        :return:
+        """
         dt = h5py.special_dtype(vlen=str)
 
         self.open_current_dataset()

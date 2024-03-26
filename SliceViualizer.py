@@ -10,6 +10,11 @@ from CustomGraphicsView import CustomGraphicsView
 
 
 class H5Reader(qt.QObject):
+    """
+    Worker of the hdf5 thread emit data_read signal when loading is done.
+    Monitor for every completed thread the import time to update resolution
+    Every slice is load in quadrant to avoid reading the same voxel different threads
+    """
     data_read = qt.pyqtSignal()
     def __init__(self, dataSet,axe,position,resolution,index,resoStatic,resoCurrent):
         super(H5Reader, self).__init__()
@@ -62,6 +67,11 @@ class H5Reader(qt.QObject):
 
 
 class SliceVisualizer(qt.QWidget):
+    """
+    Widget to display a slice from and hdf5 volume depending on currentPlaneSection define the axis to be displayed.
+    A horizontal slider allow the user to change the slice displayed
+    To Do need to be updated to 4D and 4.5D
+    """
     def __init__(self, planeSection,parent=None):
         qt.QWidget.__init__(self, parent)
         self.parent = parent

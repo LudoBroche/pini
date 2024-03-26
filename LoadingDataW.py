@@ -4,6 +4,11 @@ import sys
 import numpy as np
 
 class LoadingDataW(qt.QMainWindow):
+    """
+    QMainWindow to setup meta data of the imported image can be 2D, 3D, + time, vector field
+
+    """
+
     def __init__(self,shapeImage,dtypeData, nameImage,pathImage,parent=None ):
         qt.QMainWindow.__init__(self, parent)
 
