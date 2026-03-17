@@ -19,6 +19,8 @@ import psutil
 import random
 
 
+
+
 class AlignDelegate(Qt.QStyledItemDelegate):
     """
     class to modify the QLabel alignment in a table
